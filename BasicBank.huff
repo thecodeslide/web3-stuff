@@ -1,0 +1,97 @@
+/** 
+ *  BASIC_BANK HUFF EXERCISE
+ *  
+ *  The task is to create a basic bank with huff
+ * functionalities include
+ *      - depositing tokens via similar to how solidity's `receive` function works
+ *      - withdrawing tokens
+ *      - keeping track of and viewing balance
+ */
+
+#define function balanceOf(address) payable returns(uint256)
+#define function withdraw(uint256) payable returns()
+
+// #define constant BALANCE_SLOT = FREE_STORAGE_POINTER()
+#define constant TOTAL_SUPPLY_SLOT = FREE_STORAGE_POINTER()
+
+// dev env
+//#define constant BALANCE_OF_SIG = 0x70a08231
+//#define constant WITHDRAW_SIG = 0x2e1a7d4d
+#define constant CALLER = 0x34A1D3fff3958843C43aD80F30b94c510645C316
+// #define macro FALLBACK() = {
+//  0x01 0x00
+//  mstore
+//  0x20 0x00
+//  return
+// }
+
+#define macro NOT_PAYABLE(error_location) = takes(0) returns(0) {
+  callvalue <error_location>
+  jumpi
+}
+
+#define macro USER_BALANCE() = takes(0) returns (0) {
+
+}
+
+#define macro ADDRESS_MASK() = takes(1) returns(1) {
+  0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff
+  and
+}
+
+#define macro MAIN() = takes(0) returns(0) {
+//  callvalue receive // jump if value not zero
+//  jumpi
+  0x04 calldatasize lt
+//  callvalue iszero
+//  or
+  receive
+  jumpi
+
+  pop
+  0x00 calldataload 0xe0
+  shr
+
+  dup1 __FUNC_SIG(balanceOf) eq
+  balanceOf
+  jumpi
+
+  dup1 __FUNC_SIG(withdraw) eq
+  withdraw
+  jumpi
+
+  throw_error:
+    0x00 dup1
+    revert
+
+  receive:
+    caller ADDRESS_MASK()
+    0x00
+    mstore
+
+    0x00 0x20
+    mstore
+
+    callvalue
+    0x40 0x00 sha3
+    sstore
+
+  balanceOf:
+    caller ADDRESS_MASK()
+    0x00
+    mstore
+
+    0x00 0x20
+    mstore
+
+    0x40 0x00 sha3
+
+    sload 0x00
+    mstore
+
+    0x20 0x00
+    return
+
+  withdraw:
+    NOT_PAYABLE<throw_error>()
+}
