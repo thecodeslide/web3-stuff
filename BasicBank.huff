@@ -11,7 +11,7 @@
 #define function balanceOf(address) payable returns(uint256)
 #define function withdraw(uint256) payable returns()
 
-// #define constant BALANCE_SLOT = FREE_STORAGE_POINTER()
+#define constant BALANCE_SLOT = FREE_STORAGE_POINTER()
 #define constant TOTAL_SUPPLY_SLOT = FREE_STORAGE_POINTER()
 
 // dev env
@@ -25,8 +25,8 @@
 //  return
 // }
 
-#define macro NOT_PAYABLE(error_location) = takes(0) returns(0) {
-  callvalue <error_location>
+#define macro ERROR(error_location) = takes(0) returns(0) {
+  <error_location>
   jumpi
 }
 
@@ -42,13 +42,13 @@
 #define macro MAIN() = takes(0) returns(0) {
 //  callvalue receive // jump if value not zero
 //  jumpi
-  0x04 calldatasize lt
-//  callvalue iszero
+//  0x04 calldatasize lt -> 8 gas
+//  callvalue iszero not -> 8 gas
 //  or
-  receive
-  jumpi
+//  receive
+//  jumpi
 
-  pop
+//  pop
   0x00 calldataload 0xe0
   shr
 
@@ -60,6 +60,11 @@
   withdraw
   jumpi
 
+  callvalue receive
+  jumpi
+
+  // else fallback if 0 calldata
+
   throw_error:
     0x00 dup1
     revert
@@ -69,22 +74,25 @@
     0x00
     mstore
 
-    0x00 0x20
+    [BALANCE_SLOT] 0x20
     mstore
 
     callvalue
     0x40 0x00 sha3
     sstore
 
+    callvalue [TOTAL_SUPPLY_SLOT]
+    sstore
+
   balanceOf:
-    caller ADDRESS_MASK()
-    0x00
+    caller ADDRESS_MASK() 0x00
     mstore
 
-    0x00 0x20
+    [BALANCE_SLOT] 0x20
     mstore
 
-    0x40 0x00 sha3
+    0x40 0x00
+    sha3
 
     sload 0x00
     mstore
@@ -93,5 +101,11 @@
     return
 
   withdraw:
-    NOT_PAYABLE<throw_error>()
+    callvalue ERROR(throw_error)
+  //  ERROR(throw_error)
+    // use call to transfer the money
+
+    //0x00 0x00 0x00 0x00 callvalue caller 28050
+    //call
+  //  iszero ERROR(throw_error)
 }
