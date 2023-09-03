@@ -31,7 +31,7 @@
 }
 
 #define macro USER_BALANCE() = takes(0) returns (0) {
-
+  // not used
 }
 
 #define macro ADDRESS_MASK() = takes(1) returns(1) {
@@ -39,7 +39,6 @@
   and
 }
 
-// not used
 #define macro ADDRESS_STORE() = takes(0) returns (0) {
   caller ADDRESS_MASK() 0x00
   mstore
@@ -48,7 +47,13 @@
   mstore
 }
 
-#define macro WITHDRAW(success) = takes(0) returns (0) {
+#define macro CALLER(err0rcode) = takes(0) returns (0) {
+  caller dup1 0x00 eq
+  <err0rcode>
+  jumpi
+}
+
+#define macro WITHDRAW(success, error) = takes(0) returns (0) {
     ADDRESS_STORE()
 
     0x40 0x00 sha3 
@@ -74,7 +79,7 @@
     [TOTAL_SUPPLY_SLOT]
     sstore
 
-    0x00 dup1 dup1 dup1 dup1 swap5 caller 0xffff call // gas,caller,amount,0x00,0x00,0x00,0x00
+    0x00 dup1 dup1 dup1 dup1 swap5 CALLER(<error>) 0xffff call // gas,caller,amount,0x00,0x00,0x00,0x00
     <success>
     jumpi
 }
