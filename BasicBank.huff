@@ -108,6 +108,9 @@
   callvalue receive
   jumpi
 
+  success:
+    stop
+
   receive:
     ADDRESS_STORE() // doesn't work .. why?? .. should work now
 
@@ -135,7 +138,4 @@
     throw_error:
       0x00 dup1
       revert
-
-    success:
-      stop
 }
