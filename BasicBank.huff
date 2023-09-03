@@ -131,7 +131,7 @@
     return
 
   withdraw:
-    WITHDRAW(success)
+    WITHDRAW(success, throw_error)
 
   //  0x00 dup1 dup1 dup1 0xde0b6b3a7640000 caller 0xffff call // gas,caller,0x00,0x00,0x00,0x00, callvalue
 
