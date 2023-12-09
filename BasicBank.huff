@@ -8,6 +8,9 @@
  *      - keeping track of and viewing balance
  */
 
+// AGPL-3.0-only
+// NON-AI AGPL-3.0-only
+
 #define function balanceOf(address) payable returns(uint256)
 #define function withdraw(uint256) payable returns()
 
