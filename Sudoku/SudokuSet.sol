@@ -4,51 +4,44 @@
 pragma solidity ^0.8.17;
 
 // import "hardhat/console.sol";
-import "woke/console.sol";
+ import "woke/console.sol";
 
 contract Sudoku {
   // int8[9][9] public board;
 
-  uint8 constant index = 9;
+  uint8 constant INDEX = 9;
   struct  Set  {
-    int8[index] values;
-    mapping (int8 => bool) contains;
+    uint8[INDEX] values;
+    mapping (uint8 => uint8) contains;
   }
-  bool flag;
+  uint8 flag;
+  Set seenList;
 
-  // Set seenBlock;
-  Set[index]  seenBlock;
-  // Set[index] seenRows; for rowsandcolumns todo or just use rowList
-  // Set[index] seenCols; for rowsandcolumns todo or just use columnSet(less gas??)
-  Set rowList;
-  // Set rowList_;
-  Set columnSet;
-
-  function isValid(int8[index][index] calldata sudokuBoard) public returns (bool) {
+  function isValid(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint8) {
     // TODO
     // if (!isValidRowsAndColumns(sudokuBoard)) {
     //     return false;
     // }
 
-    if (!isValidRows(sudokuBoard)) {
+    if (isValidRows(sudokuBoard) == 0) {
       console.log("false row");
       return flag;
     }
 
-    if (!isValidColumns(sudokuBoard)) {
+    if (isValidColumns(sudokuBoard) == 0) {
       console.log("false col");
-      return false;
+      return 0;
     }
 
-    if (!isValidBlocks(sudokuBoard)) {
+    if (isValidBlocks(sudokuBoard) == 0) {
       console.log("false block");
-      return false;
+      return 0;
     }
     console.log("true");
-    return true;
+    return 1;
   }
 
-  function isValidBlocks(int8[index][index] calldata sudokuBoard) public returns (bool) {
+  function isValidBlocks(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint8) {
       // Set[9] storage _seenBlock = seenBlock;
       uint8 blockNumber = 0;
       uint8 count = 0; // for dev. can be removed
@@ -59,119 +52,132 @@ contract Sudoku {
         // iterate over the cells in each block.
         for (uint8 miniRow = rowBlock; miniRow < rowBlock + 3; miniRow++) {
           for (uint8 miniCol = colBlock; miniCol < colBlock + 3; miniCol++) {
-            int8 cellValue = sudokuBoard[miniRow][miniCol];
+            uint8 cellValue = sudokuBoard[miniRow][miniCol];
             // continue if no value assigned to cell
-            if (cellValue == -1) {
-              seenBlock[blockNumber].values[count++] = cellValue; // for dev. can be removed
+            if (cellValue == 0) {
+              seenList.values[count++] = cellValue; // for dev. can be removed
               // continue;
             }
             else if (cellValue < 1 || cellValue > 9) {
               console.log("faalse");
-              resetBlock(seenBlock);
-              return false;
+              reset();
+              return 0;
             }
-            else if (seenBlock[blockNumber].contains[cellValue]) {
+            else if (seenList.contains[cellValue] == 1) {
               console.log("false", blockNumber, miniRow, miniCol);
-              resetBlock(seenBlock);
-              return false;
+              reset();
+              return 0;
             }
             else {
-              seenBlock[blockNumber].values[count++] = cellValue; // for dev. can be removed
-              seenBlock[blockNumber].contains[cellValue] = true;
+              seenList.values[count++] = cellValue; // for dev. can be removed
+              seenList.contains[cellValue] = 1;
             }
+            // else if (seenBlock[blockNumber].contains[cellValue]) {
+            //   console.log("false", blockNumber, miniRow, miniCol);
+            //   resetBlock(seenBlock);
+            //   return false;
+            // }
+            // else {
+            //   seenBlock[blockNumber].values[count++] = cellValue; // for dev. can be removed
+            //   seenBlock[blockNumber].contains[cellValue] = true;
+            // }
 //                 console.log("blockNumber", blockNumber);
           }
         }
         count = 0; // for dev. can be removed
         blockNumber++;
+        reset();
       }
     }
 
     // reset mapping in struct array
-    resetBlock(seenBlock);
+    // delete seenList;
+    reset();
 
     console.log("true");
-    return true;
+    return 1;
   }
 
-  function isValidRows(int8[9][9] calldata sudokuBoard) public returns(bool _flag) {
-    _flag = false;
+  function isValidRows(uint8[9][9] memory sudokuBoard) public returns(uint8 _flag) {
+    _flag = flag;
 
    for (uint8 row = 0; row < 9; row++) {
       for (uint8 i = 0; i < 9; i++) {
-        int8 cellValue = sudokuBoard[row][i];
+        uint8 cellValue = sudokuBoard[row][i];
 
-        if (cellValue == -1) {
-          rowList.values[i] = cellValue; // for dev. can be removed
+        if (cellValue == 0) {
+          seenList.values[i] = cellValue; // for dev. can be removed
           // continue;
         }
         else if (cellValue < 1 || cellValue > 9) {
           console.log("false 1");
           // _rowList = _rowListEmpty;
           // reset mapping in struct
-          reset(rowList);
+          reset();
           return _flag;
         }
-        else if (rowList.contains[cellValue]) {
+        else if (seenList.contains[cellValue] == 1) {
           console.log("false2", row, i);
-          reset(rowList);
+          reset();
           return _flag;
         }
         // add current cell value to row mapping value array.
         else {
-          rowList.contains[cellValue] = true;
-          rowList.values[i] = cellValue;
+          seenList.contains[cellValue] = 1;
+          seenList.values[i] = cellValue;
         }
           // _rowList = rowList_;
       }
-      reset(rowList);
+      // delete seenList;
+      reset();
     }
 
     console.log("true!!");
-    _flag = true;
+    _flag = 1;
     return _flag;
   }
 
-  function isValidColumns(int8[9][9] calldata sudokuBoard) public returns (bool _flag) {
+  function isValidColumns(uint8[9][9] memory sudokuBoard) public returns (uint8 _flag) {
     // console.log(sudokuBoard.length);
     // Set storage _columnSet = columnSet;
-    _flag = false;
+    _flag = 0;
 
     for (uint8 col = 0; col < 9; col++) {
       for (uint8 i = 0; i < 9; i++) {
-        int8 cellValue = sudokuBoard[i][col];
-        if (cellValue == -1) {
-          columnSet.values[i] = cellValue; // for dev. can be removed
+        uint8 cellValue = sudokuBoard[i][col];
+        if (cellValue == 0) {
+          seenList.values[i] = cellValue; // for dev. can be removed
             // continue;
         }
         else if (cellValue < 1 || cellValue > 9) {
           console.log("false 1");
-          reset(columnSet);
+          reset();
           return _flag;
         }
-        else if (columnSet.contains[cellValue]) {
+        else if (seenList.contains[cellValue] == 1) {
           console.log("false2", i, col);
-          reset(columnSet);
+          reset();
           return _flag;
         }
         else {
-          columnSet.contains[cellValue] = true;
-          columnSet.values[i] = cellValue;
+          seenList.contains[cellValue] = 1;
+          seenList.values[i] = cellValue;
         }
       }
-
-      // delete _columnSet;
+      reset();
+    }
+    // delete _columnSet;
       // for(int8 j = 1; j <= 9; j++) {
       //     if (_columnSet.contains[j]) {
       //         _columnSet.contains[j] = false;
       //     }
       //     _columnSet.values[uint8(j) - 1] = 0;
       // }
-      reset(columnSet);
+      // delete seenList;
+      reset();
       console.log("true!!");
-      _flag = true;
+      _flag = 1;
       return _flag;
-    }
   }
 
   // function isValidRowsAndColumns(int8[9][9] calldata sudokuBoard) {
@@ -180,17 +186,18 @@ contract Sudoku {
   //   //cols
   // }
 
-  function resetBlock(Set[index] storage zeroBlock) internal {
-    for(uint8 j = 0; j < 9; j++) {
-      reset(zeroBlock[j]);
+//   function resetBlock(Set[index] storage zeroBlock) internal {
+//     for(uint8 j = 0; j < 9; j++) {
+//       reset(zeroBlock[j]);
+//     }
+//   }
+  // reset values
+  function reset() internal {
+    delete seenList;
+    
+    for(uint8 j = 1; j <= 9; j++) {
+        delete seenList.contains[j];
     }
-  }
-
-  function reset(Set storage zeroSet) internal {
-    // reset mapping in struct
-    for(int8 j = 1; j <= 9; j++) {
-        delete zeroSet.contains[j];
-    }
-    delete zeroSet.values;
+    // delete zeroSet.values;
   }
 }
