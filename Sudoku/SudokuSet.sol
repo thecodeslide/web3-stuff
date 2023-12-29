@@ -1,5 +1,6 @@
 // AGPL-3.0-only
 // NON-AI AGPL-3.0-only
+// SPDX-License-Identifier: NON-AI AGPL-3.0-only
 
 pragma solidity ^0.8.17;
 
@@ -10,38 +11,39 @@ contract Sudoku {
   // int8[9][9] public board;
 
   uint8 constant INDEX = 9;
+  uint flag = 1;
   struct  Set  {
     uint8[INDEX] values;
     mapping (uint8 => uint8) contains;
   }
-  uint8 flag;
+  
   Set seenList;
 
-  function isValid(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint8) {
+  function isValid(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint) {
     // TODO
     // if (!isValidRowsAndColumns(sudokuBoard)) {
     //     return false;
     // }
 
-    if (isValidRows(sudokuBoard) == 0) {
+    if (isValidRows(sudokuBoard) == 1) {
       console.log("false row");
       return flag;
     }
 
-    if (isValidColumns(sudokuBoard) == 0) {
+    if (isValidColumns(sudokuBoard) == 1) {
       console.log("false col");
-      return 0;
+      return 1;
     }
 
-    if (isValidBlocks(sudokuBoard) == 0) {
+    if (isValidBlocks(sudokuBoard) == 1) {
       console.log("false block");
-      return 0;
+      return 1;
     }
     console.log("true");
-    return 1;
+    return 2;
   }
 
-  function isValidBlocks(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint8) {
+  function isValidBlocks(uint8[INDEX][INDEX] memory sudokuBoard) public returns (uint) {
       // Set[9] storage _seenBlock = seenBlock;
       uint8 blockNumber = 0;
       uint8 count = 0; // for dev. can be removed
@@ -61,12 +63,12 @@ contract Sudoku {
             else if (cellValue < 1 || cellValue > 9) {
               console.log("faalse");
               reset();
-              return 0;
+              return 1;
             }
             else if (seenList.contains[cellValue] == 1) {
               console.log("false", blockNumber, miniRow, miniCol);
               reset();
-              return 0;
+              return 1;
             }
             else {
               seenList.values[count++] = cellValue; // for dev. can be removed
@@ -95,10 +97,10 @@ contract Sudoku {
     reset();
 
     console.log("true");
-    return 1;
+    return 2;
   }
 
-  function isValidRows(uint8[9][9] memory sudokuBoard) public returns(uint8 _flag) {
+  function isValidRows(uint8[9][9] memory sudokuBoard) public returns(uint _flag) {
     _flag = flag;
 
    for (uint8 row = 0; row < 9; row++) {
@@ -133,14 +135,14 @@ contract Sudoku {
     }
 
     console.log("true!!");
-    _flag = 1;
+    _flag = 2;
     return _flag;
   }
 
-  function isValidColumns(uint8[9][9] memory sudokuBoard) public returns (uint8 _flag) {
+  function isValidColumns(uint8[9][9] memory sudokuBoard) public returns (uint _flag) {
     // console.log(sudokuBoard.length);
     // Set storage _columnSet = columnSet;
-    _flag = 0;
+    _flag = 1;
 
     for (uint8 col = 0; col < 9; col++) {
       for (uint8 i = 0; i < 9; i++) {
@@ -176,7 +178,7 @@ contract Sudoku {
       // delete seenList;
       reset();
       console.log("true!!");
-      _flag = 1;
+      _flag = 2;
       return _flag;
   }
 
