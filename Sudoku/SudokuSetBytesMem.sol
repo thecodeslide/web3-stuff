@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: NON-AI AGPL-3.0-only
 // AGPL-3.0-only
 // NON-AI AGPL-3.0-only
 
