@@ -20,48 +20,35 @@ library SetSudokuLib {
   error duplicateError(bytes1, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  // event insertLog(address indexed sender, uint indexed key, uint value);
-
   function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) internal {
     require(cellValue < hex'0A', "number too high");
-    
-    // if(cellValue > 0 ) set.values[cellValue] = 1;
-    // set.has[cellValue -1] = 1;
-    // else  {
-    //   set.values[cellValue - 1] = 1;
-    //   set.has[cellValue] = 1;
-    // }
+
     if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
-    if(cellValue != 0 ) { // refactor??
+    if(cellValue != 0 ) { // 
       set.has[cellValue] = hex'01';
       assert(contains(set, cellValue) == hex'01');
       // emit insertLog(msg.sender, key, cellValue);
     }
-    
-    // set.values[key] = cellValue;
   }
 
   function contains(Set storage set, bytes1 cellValue) internal view returns(bytes1) {
     if(set.values.length == 0) return 0; // 
     return set.has[cellValue];// {//return 1;
-
   }
 
    function reset(Set storage set) internal {
       delete set.values;
- 
+
       for(uint j = 1; j < 10; j++) {
         set.has[bytes1(uint8(j))] = hex'00';
         assert(set.has[bytes1(uint8(j))] == hex'00');
       }
     }
-
 }
 
 contract Sudoku {
-  
   using SetSudokuLib for SetSudokuLib.Set;
-  
+
   uint constant INDEX = 9;
 
   SetSudokuLib.Set seenList;
@@ -73,37 +60,21 @@ contract Sudoku {
     //     return false;
     // }
 
-    // console.log("true");
-    // return 2;
-    // isValidRows(sudokuBoard);
-    // isValidColumns(sudokuBoard);
-    // isValidBlocks(sudokuBoard);
-
-
-    // bytes1[9] calldata rowList;
-    // bytes1[9] calldata colList;
-    // bytes1[INDEX] calldata blockList;
     uint cellValue;
 
     SetSudokuLib.Set2 memory rowList;
     SetSudokuLib.Set2 memory colList;
     SetSudokuLib.Set2 memory blockList;
-
-    // Set memory rowList;
-    // Set memory colList;
-    // Set memory blockList;
-
-
+   
     for (uint r = 0; r < 9; r++) {
-        for(uint c = 0; c < 9; c++) { // replacie
+        for(uint c = 0; c < 9; c++) { // 
             cellValue = sudokuBoard[r][c];
+            require(bytes1(uint8(cellValue)) < hex'0A', "number too high");
+
             if(cellValue != 0) {
-            // if(cellValue == 0) { // represnts empty cell
-            //     continue;
-            // }
                 cellValue = sudokuBoard[r][c] -1; // index
                 if(rowList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue)), hex'DEADBEEF') ;
+                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
                 }
                 rowList.values[cellValue] = hex'01';
             }
@@ -112,27 +83,29 @@ contract Sudoku {
             if(cellValue != 0) {
                 cellValue -= 1;
                 if(colList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue)),  hex'FDFDFDFD') ;
+                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
                 }
                 colList.values[cellValue] = hex'01';
             }
 
-            cellValue = sudokuBoard[3* (r / 3 )+ c/3][3*(r%3)+(c%3)];
+            cellValue = sudokuBoard[3* (r / 3) + c/3][3*(r%3)+(c%3)];
             if(cellValue != 0) {
                 cellValue -= 1;
                 if(blockList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue)), hex'BEBEBEBE') ;
+                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
                 }
                 blockList.values[cellValue] = hex'01';
             }
         }
-        delete rowList;
-        delete colList;
-        delete blockList;
+
+        delete rowList.values;
+        delete colList.values;
+        delete blockList.values;
     }
 
     return 2; // true
   }
+
 
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) public {
     uint blockNumber = 0;
@@ -144,7 +117,7 @@ contract Sudoku {
           for (uint miniCol = colBlock; miniCol < colBlock + 3; miniCol++) {
             bytes1 cellValue = bytes1(uint8(sudokuBoard[miniRow][miniCol]));
             seenList.insert(count++, "blocks", (cellValue));
-       
+
           }
         }
         count = 0; // for dev. can be removed
@@ -156,29 +129,37 @@ contract Sudoku {
     // emit Log("blocks");
   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) public {
+  function isValidRows(uint[9][9] calldata sudokuBoard) public returns (uint) { // transfer seenlist
     // _flag = flag;
 
    for (uint row = 0; row < 9; row++) {
-    insertListInner(sudokuBoard[row], "rows");
-   }
+    insertListInner(sudokuBoard, "rows", row);
+    }
     assertTest();
     // emit Log("row");
+    return 2;
   }
 
-  function isValidColumns(uint[9][9] calldata sudokuBoard) public {
-    for (uint col = 0; col < 9; col++) {
-        insertListInner(sudokuBoard[col], "cols");
+  function isValidColumns(uint[9][9] calldata sudokuBoard) public returns (uint)  {
+    for (uint i = 0; i < 9; i++) {
+        insertListInner(sudokuBoard, "cols", i);
     }
-   
       assertTest();
       // emit Log("Cols");
+      return 2;
   }
 
-  function insertListInner(uint[9] calldata arr, bytes32 note) private {
-    for (uint i = 0; i < 9; i++) {
-        bytes1 cellValue = bytes1(uint8(arr[i]));
-        seenList.insert(i, note, cellValue);
+  function insertListInner(uint[9][9] calldata board, bytes32 note, uint position) private { 
+    bytes1 cellValue = hex'00';
+
+    for (uint j = 0; j< 9; j++) {
+      if (note == "rows") {
+        cellValue = bytes1(uint8(board[position][j]));
+      }
+      else { 
+        cellValue = bytes1(uint8(board[j][position]));
+      }
+        seenList.insert(j, note, cellValue);
     }
 
     assertTest();
@@ -195,3 +176,6 @@ contract Sudoku {
   // }
 
 }
+
+
+
