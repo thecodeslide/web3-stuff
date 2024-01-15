@@ -74,15 +74,12 @@ contract Sudoku {
     }
     catch Error(string memory errorText) {  
       emit LogError(errorText);
-      return (1, false);
     }
     catch Panic(uint errCode) {
       emit LogPanic(errCode, "row");
-      return (1, false);
     }
     catch (bytes memory lowLevelData) {
       emit LogBytes(lowLevelData);
-      return (1, false);
     }
 
     try this.isValidColumns(sudokuBoard) {
@@ -90,20 +87,18 @@ contract Sudoku {
     }
     catch Error(string memory errorText) {  
       emit LogError(errorText);
-      return (3, false);
     }
     catch Panic(uint errCode) {
       emit LogPanic(errCode, "cols");
-      return (3, false);
+    //  return (3, false);
     }
     catch (bytes memory lowLevelData) {
       emit LogBytes(lowLevelData);
-      return (3, false);
     }
 
     try this.isValidBlocks(sudokuBoard) {
       emit Log(msg.sender, "ValidBlocks", 2);
-      return (2, true);
+    //  return (2, true);
     }
     // catch Error(string memory errorText) {  
     //   emit LogError(errorText);
@@ -111,13 +106,13 @@ contract Sudoku {
     // }
     catch Panic(uint errCode) {
       emit LogPanic(errCode, "block");
-      return (4, false);
     }
     // catch (bytes memory lowLevelData) {
     //   emit LogBytes(lowLevelData);
     //   return (4, false);
     // }
-  
+    emit Log(msg.sender, "DONE", 2);
+    return (2, true);
   }
 
   function isValidBlocks(uint8[INDEX][INDEX] memory sudokuBoard) public  {
