@@ -44,7 +44,7 @@ library SetSudokuLib {
 
    function reset(Set memory set) internal pure {
       set.values = new bytes(9);
-      assert(bytes9(set.values) & 0x0 == 0x0);
+      assert(bytes9(set.values) | 0x0 == 0x0);
 
       // uint val = uint(bytes32(set.values));
       // val &= 0x0;
