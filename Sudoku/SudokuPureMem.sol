@@ -109,14 +109,9 @@ contract SudokuMem {
         }
 
         assembly {
-          tmp := add(224, 32)
-          mstore(tmp, emptyBytes)
-          
-          tmp := add(288, 32)
-          mstore(tmp, emptyBytes)
-
-          tmp := add(352, 32)
-          mstore(tmp, emptyBytes)
+          mstore(add(mload(rowList), 0x20), emptyBytes)
+          mstore(add(mload(colList), 32), emptyBytes)
+          mstore(add(mload(blockList), 32), emptyBytes)
         }
 
     }
