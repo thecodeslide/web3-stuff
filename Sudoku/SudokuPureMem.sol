@@ -43,7 +43,9 @@ library SetSudokuLib {
   }
 
    function reset(Set memory set) internal pure {
-      set.values = new bytes(9);
+      assembly {
+        mstore(add(mload(set), 0x20), 0x0)
+      }
       assert(bytes9(set.values) | 0x0 == 0x0);
     }
 }
@@ -73,7 +75,6 @@ contract SudokuMem {
     blockList.values = new bytes(9);
 
     uint temp;
-    bytes9 emptyBytes;
 
     //  bytes9 emptyBytes = hex'000000000000000000'; // TODO
     //  bytes memory array = abi.encodePacked(value); // TODO
@@ -109,9 +110,9 @@ contract SudokuMem {
         }
 
         assembly {
-          mstore(add(mload(rowList), 0x20), emptyBytes)
-          mstore(add(mload(colList), 32), emptyBytes)
-          mstore(add(mload(blockList), 32), emptyBytes)
+          mstore(add(mload(rowList), 0x20), 0x0)
+          mstore(add(mload(colList), 32), 0)
+          mstore(add(mload(blockList), 32), 0)
         }
 
     }
