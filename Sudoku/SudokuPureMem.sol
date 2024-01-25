@@ -28,18 +28,22 @@ library SetSudokuLib {
   error duplicateError(uint, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  function getBoard(uint[9][9] calldata board) external pure returns (uint[9][9] calldata) {
-    return board;
-  }
+  // function getBoard(uint[9][9] calldata board) external pure returns (uint[9][9] calldata) {
+  //    return board;
+  // }
 
   function insert(Set memory set, uint key, bytes32 action, uint cellValue) internal pure {
     if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue + 1, action, hex'DEADBEEF');
-      set.values[cellValue] = hex'01';
+    assembly { 
+      mstore8(add(add(mload(set), 0x20), cellValue), 1) // 810 gas
+    }
   }
 
-  function contains(Set memory set, uint cellValue) internal pure returns(bytes1) {
-    if(set.values.length == 0) return hex'00'; // 
-    return set.values[cellValue];
+  function contains(Set memory set, uint cellValue) internal pure returns(bytes1 result) {
+    // return set.values[cellValue];
+    assembly {
+      result := mload(add(add(mload(set), 0x20), cellValue))
+    }
   }
 
    function reset(Set memory set) internal pure {
@@ -149,7 +153,7 @@ contract SudokuMem {
         count = 0; // for dev. can be removed
         blockNumber++;
 
-        seenListMem.values = new bytes(9);
+        seenListMem.reset();
       }
     }
 
