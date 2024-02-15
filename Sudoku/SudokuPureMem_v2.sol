@@ -101,10 +101,8 @@ contract SudokuMem {
             let cellValue := calldataload(add(sudokuBoard ,mul(0x20, c)))
             if gt(cellValue, 0) {  //rows
               cellValue := sub(cellValue, 1)
-            
               let seenList := add(mload(seen), 0x20)
-              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
-              let result := and(mload(add(seenList, cellValue)), mask)
+              let result := validate(seenList, add(seenList, cellValue))
               //  error duplicateError2(bytes1, bytes4); // f3175e8b
               if eq(result, hex'01') {
                 revert(customError(cellValue, hex'DEADBEEF'), 0x44)
@@ -117,10 +115,8 @@ contract SudokuMem {
             cellValue := calldataload(add( add(mul(0x20, r), sudokuBoard), mul(0x120, c)))
             if gt(cellValue, 0) {  //rows
               cellValue := sub(cellValue, 1)
-            
               let seenList := add(mload(seen), 0x20)
-              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
-              let result := and(mload(add(add(seenList, cellValue), 0xa0)), mask)
+              let result := validate(seenList, add(add(seenList, cellValue), 0xa))
               //  error duplicateError2(bytes1, bytes4); // f3175e8b
               if eq(result, hex'01') {
                 revert(customError(cellValue, hex'FDFDFDFD'), 0x44)
@@ -134,11 +130,9 @@ contract SudokuMem {
             cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j)))
             if gt(cellValue, 0) { 
               cellValue := sub(cellValue, 1)
-            
               let seenList := add(mload(seen), 0x20)
-              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
               let tmp := add(add(seenList, cellValue), 0x14)
-              let result := and(mload(tmp), mask)
+              let result := validate(seenList, tmp)
               //  error duplicateError2(bytes1, bytes4); // f3175e8b
               if eq(result, hex'01') {
                 revert(customError(cellValue, hex'BEBEBEBE'), 0x44)
