@@ -144,6 +144,11 @@ contract SudokuMem {
           mstore(add(mload(seen), 0x20), 0)
         }
 
+        function validate(list, tmp) -> res {
+          let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
+          res := and(mload(tmp), mask)
+        }
+
         function customError(cellValue, val) -> cache {
           cache := mload(0x40)
           mstore(cache, hex'f3175e8b')//duplicateError2
