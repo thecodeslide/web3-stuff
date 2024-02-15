@@ -22,7 +22,7 @@ library SetSudokuLib {
   error duplicateError(uint, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  function insert(Set memory set, uint key, bytes32 action, uint cellValue) internal pure {
+  function insert(Set memory set, uint key, bytes32 action, uint cellValue) public pure {
     // bytes4 errorSelector = duplicateError.selector;
     // inline contain
     assembly {
@@ -59,7 +59,7 @@ library SetSudokuLib {
         mstore(add(mload(set), 0x20), 0)
       }
 
-      assert(bytes9(set.values) | 0x0 == 0x0); // gas becomes 40158 truncate?
+      assert(bytes9(set.values) | 0x0 == 0x0);
     }
 }
 
@@ -74,7 +74,7 @@ contract SudokuMem {
   event Log(string indexed message);
 
 
-  function isValid(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
+  function isValid(uint[INDEX][INDEX] calldata sudokuBoard) public pure returns (uint) {
     // TODO
     // if (!isValidRowsAndColumns(sudokuBoard)) {
     //     return false;
@@ -83,71 +83,80 @@ contract SudokuMem {
     SetSudokuLib.Set memory seen;
     seen.values = new bytes(32);
 
-    // rowList.values = new bytes(9);
-    // colList.values = new bytes(9);
-    // blockList.values = new bytes(9);
-
     assembly {
-
+      let pos := mload(seen) // 0x80 -> 0xa0
+      mstore(pos, 0)
+      
+      mstore(seen, 0)
+      mstore(mload(seen), 0x20)
+      mstore(0x40, pos) //0xa0
     }
 
-
-    uint cellValue;
-
-    for (uint r = 0; r < 9; r++) {
-        for(uint c = 0; c < 9; c++) { // replacie with function insertBlockInner
-            cellValue = sudokuBoard[r][c];
-            if(cellValue != 0) {
-            // if(cellValue == 0) { // represnts empty cell
-            //     continue;
-            // }
-                cellValue = sudokuBoard[r][c] -1; // index
-                // if(rowList.values[cellValue] == hex'01') {
-                if(seen.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
-                }
-                
-                // rowList.values[cellValue] = hex'01';
-
-                // execution cost	222568 gas
-                seen.insert(c, "rows", cellValue);
-
-                // assembly {
-                //   mstore(0x20, seen) // 0x80
-                //   mstore(0x80, 0x20)
-                //   mstore8(add(0x20, sub(cellValue, 1)), 1)
-                // }
+    // uint cellValue;
+    uint r;
+    uint c;
+    assembly {
+        for {  r := 0 } lt(r, 9) { r := add(r, 1) } {
+          for {  c := 0 } lt(c, 9) { c := add(c, 1) } {
+            let cellValue := calldataload(add(sudokuBoard ,mul(0x20, c)))
+            if gt(cellValue, 0) {  //rows
+              cellValue := sub(cellValue, 1)
+            
+              let seenList := add(mload(seen), 0x20)
+              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
+              let result := and(mload(add(seenList, cellValue)), mask)
+              //  error duplicateError2(bytes1, bytes4); // f3175e8b
+              if eq(result, hex'01') {
+                revert(customError(cellValue, hex'DEADBEEF'), 0x44)
+                // revert(0,0)
+              }
+              mstore8(add(seenList, cellValue), 1)
             }
-        } // temp for testing. remove
-    } // temp for testing. remove
 
-    //         cellValue = sudokuBoard[c][r]; // index
-    //         if(cellValue != 0) {
-    //             cellValue -= 1;
-    //             if(colList.values[cellValue] == hex'01') {
-    //                 revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
-    //             }
-    //             // colList.values[cellValue] = hex'01';
-    //             colList.insert(c, "cols", cellValue);
-    //         }
+        // cols
+            cellValue := calldataload(add( add(mul(0x20, r), sudokuBoard), mul(0x120, c)))
+            if gt(cellValue, 0) {  //rows
+              cellValue := sub(cellValue, 1)
+            
+              let seenList := add(mload(seen), 0x20)
+              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
+              let result := and(mload(add(add(seenList, cellValue), 0xa0)), mask)
+              //  error duplicateError2(bytes1, bytes4); // f3175e8b
+              if eq(result, hex'01') {
+                revert(customError(cellValue, hex'FDFDFDFD'), 0x44)
+              }
+              mstore8(add(add(seenList, cellValue), 0xa), 1)
+            }
 
-    //         cellValue = sudokuBoard[3* (r / 3 )+ c/3][3*(r%3)+(c%3)];
-    //         // ellValue = sudokuBoard[r / 3* 3][3*(r%3)+(c%3)];
-    //         if(cellValue != 0) {
-    //             cellValue -= 1;
-    //             //  board[3*Math.floor(i/3)+Math.floor(j/3)][3*(i%3)+(j%3)]
-    //             if(blockList.values[cellValue] == hex'01') {
-    //                 revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
-    //             }
-    //             // blockList.values[cellValue] = hex'01';
-    //             blockList.insert(c, "block", cellValue);
-    //         }
-    //     }
+        //blocks
+            let i := add(mul(div(r, 3), 3) , div(c, 3))
+            let j := add(mul(mod(r,3), 3), mod(c, 3))
+            cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j)))
+            if gt(cellValue, 0) { 
+              cellValue := sub(cellValue, 1)
+            
+              let seenList := add(mload(seen), 0x20)
+              let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
+              let tmp := add(add(seenList, cellValue), 0x14)
+              let result := and(mload(tmp), mask)
+              //  error duplicateError2(bytes1, bytes4); // f3175e8b
+              if eq(result, hex'01') {
+                revert(customError(cellValue, hex'BEBEBEBE'), 0x44)
+              }
+              mstore8(tmp, 1)
+            }
+            
+          }
+          mstore(add(mload(seen), 0x20), 0)
+        }
 
-        
-        // assembly {
-
-        // }
+        function customError(cellValue, val) -> cache {
+          cache := mload(0x40)
+          mstore(cache, hex'f3175e8b')//duplicateError2
+          mstore8(add(cache, 0x04), add(cellValue, 1))
+          mstore(add(cache, 0x24), val)
+        }
+    }
 
     // emit Log(hex'FADEDEAD');
     return 2; // true
