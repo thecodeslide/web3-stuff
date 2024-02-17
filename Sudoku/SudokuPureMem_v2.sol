@@ -142,6 +142,11 @@ contract SudokuMem {
             
           }
           mstore(add(mload(seen), 0x20), 0)
+          let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          mask := and(mask, mload(add(mload(seen), 0x20)))
+          if or(mask, 0) {
+            stop()
+          }
         }
 
         function validate(list, tmp) -> res {
