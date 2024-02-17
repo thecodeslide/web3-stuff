@@ -28,17 +28,12 @@ library SetSudokuLib {
   }
 
   function contains(Set memory set, uint cellValue) internal pure returns(bytes1) {
-    if(set.values.length == 0) return hex'00'; // 
     return set.values[cellValue];
   }
 
    function reset(Set memory set) internal pure {
       set.values = new bytes(9);
       assert(bytes9(set.values) | 0x0 == 0x0);
-
-      // uint val = uint(bytes32(set.values));
-      // val &= 0x0;
-      // set.values = abi.encodePacked(val);
     }
 }
 
@@ -67,44 +62,45 @@ contract SudokuMem {
     blockList.values = new bytes(9);
    
     for (uint r = 0; r < 9; r++) {
-        for(uint c = 0; c < 9; c++) { // replacie with function insertBlockInner
-            unchecked {
-              cellValue -= 1;
-            }
-            require(cellValue >= 0, "too low");
+        for(uint c = 0; c < 9; c++) {
+          unchecked {
+            cellValue = sudokuBoard[r][c];
+          }
+          require(cellValue < 10, "too high");
             if(cellValue != 0) {
-                unchecked {
-                  cellValue -= 1;
-                }
-                if(rowList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
-                }
-                rowList.insert(c, "rows", cellValue);
+              unchecked {
+                cellValue -= 1;
+              }
+              if(rowList.contains(cellValue) == hex'01') {
+                  revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
+              }
+              rowList.insert(c, "rows", cellValue);
             }
 
             unchecked {
               cellValue = sudokuBoard[c][r];
             }
-            require(cellValue >= 0, "too low");
+            require(cellValue < 10, "too high");
+
             if(cellValue != 0) {
               unchecked {
                 cellValue -= 1;
               }
-                if(colList.values[cellValue] == hex'01') {
+                if(colList.contains(cellValue) == hex'01') {
                     revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
                 }
                 colList.insert(c, "cols", cellValue);
             }
-
             unchecked {
               cellValue = sudokuBoard[3* (r / 3 )+ c/3][3*(r%3)+(c%3)];
             }
-            require(cellValue >= 0, "too low");
+
+            require(cellValue < 10, "too high");
             if(cellValue != 0) {
               unchecked {
                 cellValue -= 1;
               }
-                if(blockList.values[cellValue] == hex'01') {
+                if(blockList.contains(cellValue) == hex'01') {
                     revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
                 }
                 blockList.insert(c, "block", cellValue);
@@ -127,22 +123,22 @@ contract SudokuMem {
 
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
-    uint blockNumber = 0;
-    uint count = 0; // for dev. can be removed
-
     seenListMem.values = new bytes(9);
-
     uint _rowBlock;
     uint _colBlock;
-
     uint cellValue;
+
     for (uint rowBlock = 0; rowBlock < 9; rowBlock += 3) {
       for (uint colBlock = 0; colBlock < 9; colBlock += 3) {
-        _rowBlock = rowBlock + 3;
-        _colBlock = colBlock + 3;
+        unchecked {
+          _rowBlock = rowBlock + 3;
+          _colBlock = colBlock + 3;
+        }
         for (uint miniRow = rowBlock; miniRow < _rowBlock; miniRow++) {
           for (uint miniCol = colBlock; miniCol < _colBlock; miniCol++) {
-            cellValue = sudokuBoard[miniRow][miniCol];
+            unchecked {
+              cellValue = sudokuBoard[miniRow][miniCol];
+            }
             if (cellValue == 0) {
               continue;
             }
@@ -151,8 +147,6 @@ contract SudokuMem {
             
           }
         }
-        count = 0; // for dev. can be removed
-        blockNumber++;
 
         seenListMem.reset();
       }
@@ -162,7 +156,7 @@ contract SudokuMem {
     return 2;
   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) { // transfer seenlist
+  function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
   
@@ -189,18 +183,21 @@ contract SudokuMem {
   function insertListInner(SetSudokuLib.Set memory seenListMem, uint[9][9] calldata board, bytes32 note, uint position) private pure {
     uint cellValue;
 
-    for (uint j = 0; j< 9; j++) {
-      if (note == "rows") {
-        cellValue = board[position][j];
+    unchecked {
+      for (uint j = 0; j< 9; j++) {
+        if (note == "rows") {
+          cellValue = board[position][j];
+        }
+        else { //col
+          cellValue = board[j][position] ;
+        }
+        if(cellValue == 0) {
+          continue;
+        }
+        require(cellValue < 10, "number too high");
+        
+        seenListMem.insert(j, note, cellValue - 1);
       }
-      else { //col
-        cellValue = board[j][position] ;
-      }
-      if(cellValue == 0) { // empty cell
-        continue;
-      }
-      require(cellValue < 10, "number too high");
-      seenListMem.insert(j, note, cellValue - 1);
     }
 
     assertTest(seenListMem);
