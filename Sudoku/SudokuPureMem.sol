@@ -156,9 +156,9 @@ contract SudokuMem {
             if gt(cellValue, 9) {
               let mem := mload(0x40)
               mstore(mem, shl(0xe5, 0x461bcd))
-              mstore(add(mem, 0x04), 0x20) // offset. tells us to step over size (0x0f)of error string
-              mstore(add(mem, 0x24), 0x0f) // length of the error string
-              mstore(add(mem, 0x44), "number too high") // right padded
+              mstore(add(mem, 0x04), 0x20)
+              mstore(add(mem, 0x24), 0x0f) 
+              mstore(add(mem, 0x44), "number too high") 
               revert(mem, 0x64)
             }
             
@@ -225,7 +225,7 @@ contract SudokuMem {
                 if eq(result, hex'01') {
                     let mem := mload(0x40)
                     mstore(mem, hex'f3175e8b')//duplicateError2
-                    mstore8(add(mem, 0x04), add(cellValue, 1)) // at offset 0x23, store cellvalue
+                    mstore8(add(mem, 0x04), add(cellValue, 1))
                     mstore(add(mem, 0x24), hex'BEBEBEBE')
                     revert(mem, 0x44)
                 }
@@ -249,12 +249,12 @@ contract SudokuMem {
     return 2;
   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) { // transfer seenlist
+  function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
   
     for (uint row = 0; row < 9; row++) {
-      insertListInner(seenListMem, sudokuBoard, "rows", row); // execution cost	36468 gas
+      insertListInner(seenListMem, sudokuBoard, "rows", row);
     }
     // emit Log("row");
     return 2;
@@ -285,7 +285,7 @@ contract SudokuMem {
           let mem := mload(0x40)
           // Error(string), which hashes to 0x08c379a0
           mstore(mem, shl(0xe5, 0x461bcd))
-          mstore(add(mem, 0x04), 0x20) // offset. tells us to step over size of error string
+          mstore(add(mem, 0x04), 0x20)
           mstore(add(mem, 0x24), 0x0f)
           mstore(add(mem, 0x44), "number too high")
           revert(mem, 0x64)
