@@ -33,9 +33,17 @@ library SetSudokuLib {
   // }
 
   function insert(Set memory set, uint key, bytes32 action, uint cellValue) internal pure {
-    if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue + 1, action, hex'DEADBEEF');
-    assembly { 
-      mstore8(add(add(mload(set), 0x20), cellValue), 1) // 810 gas
+    assembly {
+      let tmp := byte(0, mload(add(add(mload(set), 0x20), cellValue)))
+      if eq(tmp, 1) {
+        let mem := mload(0x40)
+        mstore(mem, hex'011d9462') // duplicateError.selector
+        mstore8(add(mem, 0x23),add(cellValue, 1))
+        mstore(add(mem, 0x24) , action)
+        mstore(add(mem, 0x44), hex'DEADBEEF')
+        revert(mem, 0x64)
+      }
+      mstore8(add(add(mload(set), 0x20), cellValue), 1)
     }
   }
 
@@ -46,12 +54,18 @@ library SetSudokuLib {
     }
   }
 
-   function reset(Set memory set) internal pure {
-      assembly {
-        mstore(add(mload(set), 0x20), 0x0)
+  function reset(Set memory set) internal pure {
+    assembly {
+          let tmp := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          let emptyBytes := 0
+          tmp := and(tmp, emptyBytes)
+          mstore(add(mload(set), 0x20), tmp)
+          tmp := and(tmp, mload(add(mload(set), 0x20)))
+          if or(tmp, 0) {
+            stop()
+          }
       }
-      assert(bytes9(set.values) | 0x0 == 0x0);
-    }
+  }
 }
 
 
@@ -62,6 +76,7 @@ contract SudokuMem {
 
   SetSudokuLib.Set seenList;
   event Log(string indexed message);
+  error duplicateError2(bytes1, bytes4);
 
   function isValid(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     // TODO
@@ -70,55 +85,105 @@ contract SudokuMem {
     // }
 
     uint cellValue;
-    SetSudokuLib.Set memory rowList;
-    SetSudokuLib.Set memory colList;
-    SetSudokuLib.Set memory blockList;
+    SetSudokuLib.Set memory seen;
+    seen.values = new bytes(1);
+    assembly {
+      for { let r := 0 } lt(r, 9) { r := add(r, 1) } {
+        for { let c := 0 } lt(c, 9) { c := add(c, 1) } {
+          cellValue := calldataload(add(sudokuBoard ,mul(0x20, c)))
+          // need to check!!!
+          if gt(cellValue, 9) {
+            let mem := mload(0x40)
+            // let error := shl(0xe5, 0x461bcd)
+            // Error(string), which hashes to 0x08c379a0
+            mstore(mem, shl(0xe5, 0x461bcd))
+            mstore(add(mem, 0x04), 0x20)
+            mstore(add(mem, 0x24), 0x0f)
+            mstore(add(mem, 0x44), "number too high")
+            revert(mem, 0x64)
+          }
 
-    rowList.values = new bytes(9);
-    colList.values = new bytes(9);
-    blockList.values = new bytes(9);
-
-    uint temp;
-
-    //  bytes9 emptyBytes = hex'000000000000000000'; // TODO
-    //  bytes memory array = abi.encodePacked(value); // TODO
-   
-    for (uint r = 0; r < 9; r++) {
-        for(uint c = 0; c < 9; c++) { // replacie with function insertBlockInner
-            cellValue = sudokuBoard[r][c];
-            if(cellValue != 0) {
-                cellValue = sudokuBoard[r][c] -1; // index
-                if(rowList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
-                }
-                rowList.insert(c, "rows", cellValue);
+          if gt(cellValue, 0) {  //rows
+            cellValue := sub(cellValue, 1)
+            let seenList := add(mload(seen), 0x20)
+            let mask := hex'FF'
+            let result := and(mload(add(seenList, cellValue)), mask)
+            if eq(result, hex'01') {
+              let mem := mload(0x40)
+              mstore(mem, hex'f3175e8b')//duplicateError2
+              mstore8(add(mem, 0x04), add(1, cellValue))
+              mstore(add(mem, 0x24), hex'DEADBEEF')
+              revert(mem, 0x44)
             }
+            mstore8(add(seenList, cellValue), 1)
+          }
 
-            cellValue = sudokuBoard[c][r]; // index
-            if(cellValue != 0) {
-                cellValue -= 1;
-                if(colList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
-                }
-                colList.insert(c, "cols", cellValue);
-            }
+      // cols
+          cellValue := calldataload(add( add(mul(0x20, r), sudokuBoard), mul(0x120, c)))
+          // need to check!!!
+          if gt(cellValue, 9) {
+            let mem := mload(0x40)
+            // Error(string), which hashes to 0x08c379a0
+            mstore(mem, shl(0xe5, 0x461bcd))
+            mstore(add(mem, 0x04), 0x20)
+            mstore(add(mem, 0x24), 0x0f)
+            mstore(add(mem, 0x44), "number too high")
+            revert(mem, 0x64)
+          }
+          if gt(cellValue, 0) {  //rows
+            cellValue := sub(cellValue, 1)
+          
+            let seenList := add(mload(seen), 0x20)
+            let mask := hex'ff'
+            let result := and(mload(add(add(seenList, cellValue), 0xa)), mask)
+            let mem := mload(0x40)
+              
+            mstore(mem, hex'f3175e8b')//duplicateError2
+            mstore8(add(mem, 0x04), add(cellValue, 1))
+            mstore(add(mem, 0x24), hex'FDFDFDFD')
+            revert(mem, 0x44)
+          }
+            mstore8(add(add(seenList, cellValue), 0xa), 1)
+          }
 
-            cellValue = sudokuBoard[3* (r / 3 )+ c/3][3*(r%3)+(c%3)];
-            if(cellValue != 0) {
-                cellValue -= 1;
-                if(blockList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
-                }
-                blockList.insert(c, "block", cellValue);
+      //blocks
+          let i := add(mul(div(r, 3), 3) , div(c, 3))
+          let j := add(mul(mod(r,3), 3), mod(c, 3))
+          cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j)))
+          if gt(cellValue, 0) {  //rows
+            cellValue := sub(cellValue, 1)
+            // need to check!!!
+            if gt(cellValue, 9) {
+              let mem := mload(0x40)
+              mstore(mem, shl(0xe5, 0x461bcd))
+              mstore(add(mem, 0x04), 0x20) // offset. tells us to step over size (0x0f)of error string
+              mstore(add(mem, 0x24), 0x0f) // length of the error string
+              mstore(add(mem, 0x44), "number too high") // right padded
+              revert(mem, 0x64)
             }
+            
+            let seenList := add(mload(seen), 0x20)
+            let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
+            let tmp := add(add(seenList, cellValue), 0x14)
+            let result := and(mload(tmp), mask)
+            if eq(result, hex'01') {
+              let mem := mload(0x40)
+              mstore(mem, hex'f3175e8b')//duplicateError2
+              mstore8(add(mem, 0x04), add(cellValue, 1)) 
+              mstore(add(mem, 0x24), hex'BEBEBEBE')
+              revert(mem, 0x44)
+            }
+            mstore8(tmp, 1)
+          }
+          
+        }          
+          mstore(add(mload(seen), 0x20), 0)
+          let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          mask := and(mask, mload(add(mload(seen), 0x20)))
+          if or(mask, 0) {
+            stop()
+          }
         }
-
-        assembly {
-          mstore(add(mload(rowList), 0x20), 0x0)
-          mstore(add(mload(colList), 32), 0)
-          mstore(add(mload(blockList), 32), 0)
-        }
-
     }
 
     return 2; // true
@@ -126,34 +191,57 @@ contract SudokuMem {
 
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
-    uint blockNumber = 0;
-    uint count = 0; // for dev. can be removed
+    seenListMem.values = new bytes(1); 
 
-    seenListMem.values = new bytes(9);
+    assembly {
+      let pos := mload(seenListMem) // 0x80 -> 0xa0
+      mstore(pos, 0)
+      mstore(seenListMem, 0)
+      mstore(0x40, pos) //0xa0
 
-    uint _rowBlock;
-    uint _colBlock;
+      for { let r := 0 } lt(r, 9) { r := add(r, 3) } {
+        for {let c := 0 } lt(c, 9) { c := add(c, 3)} {
+          let seenList := mload(seenListMem)
+          for { let i:= r} lt(i, add(r,3)) { i:= add(i,1)} {
+            for { let j := c } lt(j, add(c,3)) { j := add(j, 1) } {
+              let cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j)))
+              // need to check!!!
+              if gt(cellValue, 9) {
+                let mem := mload(0x40)
+                // Error(string), which hashes to 0x08c379a0
+                mstore(mem, shl(0xe5, 0x461bcd))
+                mstore(add(mem, 0x04), 0x20)
+                mstore(add(mem, 0x24), 0x0f)
+                mstore(add(mem, 0x44), "number too high")
+                revert(mem, 0x64)
+              }
 
-    uint cellValue;
-    for (uint rowBlock = 0; rowBlock < 9; rowBlock += 3) {
-      for (uint colBlock = 0; colBlock < 9; colBlock += 3) {
-        _rowBlock = rowBlock + 3;
-        _colBlock = colBlock + 3;
-        for (uint miniRow = rowBlock; miniRow < _rowBlock; miniRow++) {
-          for (uint miniCol = colBlock; miniCol < _colBlock; miniCol++) {
-            cellValue = sudokuBoard[miniRow][miniCol];
-            if (cellValue == 0) {
-              continue;
+              if gt(cellValue, 0) {  //rows
+                cellValue := sub(cellValue, 1)
+                let mask := hex'ff'
+                let tmp := add(seenList, cellValue)
+                let result := and(mload(tmp), mask)
+                //  error duplicateError2(bytes1, bytes4); // f3175e8b
+                if eq(result, hex'01') {
+                    let mem := mload(0x40)
+                    mstore(mem, hex'f3175e8b')//duplicateError2
+                    mstore8(add(mem, 0x04), add(cellValue, 1)) // at offset 0x23, store cellvalue
+                    mstore(add(mem, 0x24), hex'BEBEBEBE')
+                    revert(mem, 0x44)
+                }
+
+                mstore8(tmp, 1)
+              }
             }
-            require(cellValue < 10, "number too high");
-            seenListMem.insert(count++, "blocks", cellValue -1);
-            
+          }
+          mstore(seenList, 0)
+
+          let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          mask := and(mask, mload(seenList))
+          if or(mask, 0) {
+            stop()
           }
         }
-        count = 0; // for dev. can be removed
-        blockNumber++;
-
-        seenListMem.reset();
       }
     }
 
@@ -173,7 +261,6 @@ contract SudokuMem {
   }
 
   function isValidColumns(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
-    // _flag = 0;
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
     
@@ -183,23 +270,30 @@ contract SudokuMem {
     return 2;
   }
 
-//   function insertBlockInner() {
-//   }
-
   function insertListInner(SetSudokuLib.Set memory seenListMem, uint[9][9] calldata board, bytes32 note, uint position) private pure {
     uint cellValue;
 
     for (uint j = 0; j< 9; j++) {
-      if (note == "rows") {
-        cellValue = board[position][j];
-      }
-      else { //col
-        cellValue = board[j][position] ;
+      assembly {
+        if eq(note, "rows") {
+          cellValue := calldataload(add(mul(j, 0x20), board))
+        }
+        if eq(note, "cols") {
+          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j))) // col
+        }
+        if gt(cellValue, 9) {
+          let mem := mload(0x40)
+          // Error(string), which hashes to 0x08c379a0
+          mstore(mem, shl(0xe5, 0x461bcd))
+          mstore(add(mem, 0x04), 0x20) // offset. tells us to step over size of error string
+          mstore(add(mem, 0x24), 0x0f)
+          mstore(add(mem, 0x44), "number too high")
+          revert(mem, 0x64)
+        }
       }
       if(cellValue == 0) { // empty cell
         continue;
       }
-      require(cellValue < 10, "number too high");
       seenListMem.insert(j, note, cellValue - 1);
     }
 
