@@ -48,12 +48,6 @@ library SetSudokuLib {
     }
   }
 
-  // function contains(Set memory set, uint cellValue) internal pure returns(bytes1 result) {
-  //  assembly {
-  //    result := mload(add(add(mload(set), 0x20), cellValue))
-  //  }
-  //}
-
    function reset(Set memory set) internal pure {
       assembly {
         mstore(add(mload(set), 0x20), 0)
@@ -81,24 +75,19 @@ contract SudokuMem {
     // }
 
     SetSudokuLib.Set memory seen;
-    seen.values = new bytes(32);
 
     assembly {
-      let pos := mload(seen) // 0x80 -> 0xa0
-      mstore(pos, 0)
-      
+      seen := mload(0x40)
       mstore(seen, 0)
       mstore(mload(seen), 0x20)
-      mstore(0x40, pos) //0xa0
     }
 
-    // uint cellValue;
     uint r;
     uint c;
     assembly {
         for {  r := 0 } lt(r, 9) { r := add(r, 1) } {
           for {  c := 0 } lt(c, 9) { c := add(c, 1) } {
-            let cellValue := calldataload(add(sudokuBoard ,mul(0x20, c)))
+            cellValue := calldataload(add(add(mul(0x120, r), sudokuBoard) ,mul(0x20, c)))
             if gt(cellValue, 0) {  //rows
               cellValue := sub(cellValue, 1)
               let seenList := add(mload(seen), 0x20)
