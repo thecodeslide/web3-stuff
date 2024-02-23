@@ -90,7 +90,7 @@ contract SudokuMem {
     assembly {
       for { let r := 0 } lt(r, 9) { r := add(r, 1) } {
         for { let c := 0 } lt(c, 9) { c := add(c, 1) } {
-          cellValue := calldataload(add(sudokuBoard ,mul(0x20, c)))
+          cellValue := calldataload(add(add(mul(0x120, r), sudokuBoard) ,mul(0x20, c)))
           // need to check!!!
           if gt(cellValue, 9) {
             let mem := mload(0x40)
@@ -276,7 +276,7 @@ contract SudokuMem {
     for (uint j = 0; j< 9; j++) {
       assembly {
         if eq(note, "rows") {
-          cellValue := calldataload(add(mul(j, 0x20), board))
+          cellValue := calldataload(add(add(mul(0x120, position), board), mul(0x20, j)))
         }
         if eq(note, "cols") {
           cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j))) // col
