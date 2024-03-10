@@ -155,10 +155,6 @@ contract SudokuMem {
     return 2; // true
   }
 
-//   function insertBlockInner () {
-        // TODO
-//   }
-
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
     uint blockNumber = 0;
@@ -203,10 +199,10 @@ contract SudokuMem {
   function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) { // transfer seenlist
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
-  
+    address _libAdd = address(SetSudokuLib);
   
     for (uint row = 0; row < 9; row++) {
-      insertListInner(seenListMem, sudokuBoard, "rows", row); // execution cost	36468 gas
+      insertListInner(seenListMem, board, "rows", row, _libAdd);
     }
     return 2;
   }
@@ -214,9 +210,10 @@ contract SudokuMem {
   function isValidColumns(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
+    address _libAdd = address(SetSudokuLib);
     
     for (uint i = 0; i < 9; i++) {
-        insertListInner(seenListMem, sudokuBoard, "cols", i);
+        insertListInner(seenListMem, sudokuBoard, "cols", i, _libAdd); 
     }
     return 2;
   }
