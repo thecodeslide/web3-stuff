@@ -22,7 +22,7 @@ library SetSudokuLib {
   error duplicateError(uint, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  function insert(Set memory set, uint key, bytes32 action, uint cellValue) public pure {
+  function insert(Set memory set, uint key, bytes32 action, uint cellValue) external pure returns (bytes9 rd) {
     // bytes4 errorSelector = duplicateError.selector;
     // inline contain
     assembly {
@@ -40,6 +40,7 @@ library SetSudokuLib {
         }
 
         mstore8(add(add(mload(set), 0x20), cellValue), 1)
+        rd := mload(add(mload(set), 0x20))
 
         function contains(_cellValue, _set) -> _result {
           let mask := 0xFF00000000000000000000000000000000000000000000000000000000000000
@@ -51,9 +52,15 @@ library SetSudokuLib {
    function reset(Set memory set) internal pure {
       assembly {
         mstore(add(mload(set), 0x20), 0)
+        let tmp := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        tmp := and(tmp, mload(add(mload(set), 0x20)))
+        if or(mload(tmp), 0) {
+          let frame := mload(0x40)
+          mstore(frame, hex"4e487b71") //Panic
+          mstore(add(frame, 0x4), 1)
+          revert(frame, 0x24)
+        }
       }
-
-      assert(bytes9(set.values) | 0x0 == 0x0);
     }
 }
 
@@ -155,10 +162,13 @@ contract SudokuMem {
     return 2; // true
   }
 
+  function getLib() public pure returns (address _lib) {
+    _lib = address(SetSudokuLib);
+  }
+
+
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
-    uint blockNumber = 0;
-    uint count = 0; // for dev. can be removed
 
     seenListMem.values = new bytes(9);
 
@@ -191,12 +201,22 @@ contract SudokuMem {
     return 2;
   }
 
-
 //   function isValidBlocksInner(uint[9][9] calldata sudokuBoard) private view {
 //     // TODO
 //   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) external pure returns (uint) { // transfer seenlist
+  function isValidColumns(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
+    SetSudokuLib.Set memory seenListMem;
+    seenListMem.values = new bytes(9);
+    address _libAdd = address(SetSudokuLib);
+    
+    for (uint i = 0; i < 9; i++) {
+     //   insertListInner(seenListMem, sudokuBoard, "cols", i, _libAdd); 
+    }
+    return 2;
+  }
+
+  function isValidRows(uint[9][9] calldata sudokuBoard) external returns (uint) { // transfer seenlist
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
     address _libAdd = address(SetSudokuLib);
@@ -207,33 +227,64 @@ contract SudokuMem {
     return 2;
   }
 
-  function isValidColumns(uint[9][9] calldata sudokuBoard) external pure returns (uint) {
-    SetSudokuLib.Set memory seenListMem;
-    seenListMem.values = new bytes(9);
-    address _libAdd = address(SetSudokuLib);
-    
-    for (uint i = 0; i < 9; i++) {
-        insertListInner(seenListMem, sudokuBoard, "cols", i, _libAdd); 
-    }
-    return 2;
-  }
-
-  function insertListInner(SetSudokuLib.Set memory seenListMem, uint[9][9] calldata board, bytes32 note, uint position) private pure {
+  function insertListInner(SetSudokuLib.Set memory seenListMem, uint[9][9] calldata board, bytes32 note, uint position, address _libAdd) private {
     uint cellValue;
+    bytes memory encoded;
+    bytes1 current;
+    bytes1 next;
+
+    assembly {
+      if iszero(extcodesize(_libAdd)) {
+        revert(0,0)
+      }
+      current := mload(0x40) // init
+    }
 
     for (uint j = 0; j< 9; j++) {
-      if (note == "rows") {
-        cellValue = board[position][j];
+      assembly {
+        if eq(note, "rows") {
+          cellValue := calldataload(add(add(mul(0x120, position), board), mul(0x20, j)))
+        }
+        if eq(note, "cols") {
+          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j))) // col
+        }
+        if gt(cellValue, 9) {
+          let mem := mload(0x40)
+          // Error(string), which hashes to 0x08c379a0
+          mstore(mem, shl(0xe5, 0x461bcd))
+          // mstore(mem, hex'08c379a0')
+          mstore(add(mem, 0x04), 0x20) 
+          mstore(add(mem, 0x24), 0x0f)
+          mstore(add(mem, 0x44), "number too high")
+          revert(mem, 0x64)
+        }
       }
-      else { //col
-        cellValue = board[j][position] ;
-      }
-      if(cellValue == 0) { // empty cell
+      if(cellValue == 0) {
         continue;
       }
-      require(cellValue < 10, "number too high");
-      
-      seenListMem.insert(j, note, cellValue - 1);
+      // TODO asm
+      encoded = abi.encodeWithSignature("insert(SetSudokuLib.Set,uint256,bytes32,uint256)",seenListMem ,j, note, cellValue - 1);
+
+      assembly {
+        let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
+        if iszero(result) {
+          if gt(returndatasize(), 0) {
+            let pos := mload(0x40)
+            returndatacopy(pos, 0, returndatasize()) // bubbled stuff
+            revert(pos, returndatasize())
+          }
+          let mem := mload(0x40)
+          mstore(mem, hex'08c379a0')
+          mstore(add(mem, 0x04), 0x20)
+          mstore(add(mem, 0x24), 0x6)
+          mstore(add(mem, 0x44), "oh no!")
+          revert(mem, 0x64)
+        }
+        returndatacopy(add(mload(seenListMem), 0x20), 0, 0x9)
+        next := mload(0x40)
+        mstore(0x40, current) // reuse block for next call
+        encoded := current
+      }
     }
 
     assertTest(seenListMem);
