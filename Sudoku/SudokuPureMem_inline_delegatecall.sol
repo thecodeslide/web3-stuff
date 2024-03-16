@@ -233,7 +233,7 @@ contract SudokuMem {
 
   function insertListInner(SetSudokuLib.Set memory seenListMem, uint[9][9] calldata board, bytes32 note, uint position, address _libAdd) private {
     uint cellValue;
-    bytes memory encoded;
+    uint len = seenListMem.values.length;
     bytes1 current;
     bytes1 next;
 
@@ -267,9 +267,20 @@ contract SudokuMem {
         continue;
       }
       // TODO asm
-      encoded = abi.encodeWithSignature("insert(SetSudokuLib.Set,uint256,bytes32,uint256)",seenListMem ,j, note, cellValue - 1);
-
       assembly {
+        let encoded := current
+        mstore(encoded, 0xe4)
+        mstore(add(encoded, 0x20), hex"484477da")
+        mstore(add(encoded, 0x24), seenListMem)
+        mstore(add(encoded, 0x44), j)
+        mstore(add(encoded, 0x64), note)
+        mstore(add(encoded, 0x84), sub(cellValue, 1))
+        mstore(add(encoded, 0xa4), 0x20)
+        mstore(add(encoded, 0xc4), len)
+        mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
+
+      // encoded = abi.encodeWithSignature("insert(SetSudokuLib.Set,uint256,bytes32,uint256)",seenListMem ,j, note, cellValue - 1);
+        
         let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
         if iszero(result) {
           if gt(returndatasize(), 0) {
@@ -286,8 +297,6 @@ contract SudokuMem {
         }
         returndatacopy(add(mload(seenListMem), 0x20), 0, 0x9)
         next := mload(0x40)
-        mstore(0x40, current) // reuse block for next call
-        encoded := current
       }
     }
 
