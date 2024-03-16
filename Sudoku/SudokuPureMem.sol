@@ -197,13 +197,12 @@ contract SudokuMem {
 
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
-    seenListMem.values = new bytes(1); 
 
     assembly {
-      let pos := mload(seenListMem) // 0x80 -> 0xa0
-      mstore(pos, 0)
       mstore(seenListMem, 0)
-      mstore(0x40, pos) //0xa0
+      let next := seenListMem
+      seenListMem := 0
+      mstore(0x40, next)
 
       for { let r := 0 } lt(r, 9) { r := add(r, 3) } {
         for {let c := 0 } lt(c, 9) { c := add(c, 3)} {
