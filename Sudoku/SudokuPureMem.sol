@@ -62,7 +62,10 @@ library SetSudokuLib {
           mstore(add(mload(set), 0x20), tmp)
           tmp := and(tmp, mload(add(mload(set), 0x20)))
           if or(tmp, 0) {
-            stop()
+            let frame := mload(0x40)
+            mstore(frame, hex"4e487b71") //Panic
+            mstore(add(frame, 0x4), 1)
+            revert(frame, 0x24)
           }
       }
   }
@@ -181,7 +184,10 @@ contract SudokuMem {
           let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
           mask := and(mask, mload(add(mload(seen), 0x20)))
           if or(mask, 0) {
-            stop()
+            let frame := mload(0x40)
+            mstore(frame, hex"4e487b71") //Panic
+            mstore(add(frame, 0x4), 1)
+            revert(frame, 0x24)
           }
         }
     }
@@ -239,7 +245,10 @@ contract SudokuMem {
           let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
           mask := and(mask, mload(seenList))
           if or(mask, 0) {
-            stop()
+            let frame := mload(0x40)
+            mstore(frame, hex"4e487b71") //Panic
+            mstore(add(frame, 0x4), 1)
+            revert(frame, 0x24)
           }
         }
       }
