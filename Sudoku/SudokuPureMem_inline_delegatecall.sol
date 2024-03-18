@@ -241,63 +241,54 @@ contract SudokuMem {
         revert(0,0)
       }
       current := mload(0x40) // init
-    }
 
-    for (uint j = 0; j< 9; j++) {
-      assembly {
-        if eq(note, "rows") {
-          cellValue := calldataload(add(add(mul(0x120, position), board), mul(0x20, j)))
+      for { let j := 0 } lt(j, 9) {j := add(j, 1)} {
+        switch note 
+        case "rows" {
+          cellValue := calldataload(add(add(mul(0x120, position), board) ,mul(0x20, j)))
         }
-        if eq(note, "cols") {
-          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j))) // col
+        default { // cols
+          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j)))
         }
+
         if gt(cellValue, 9) {
           let mem := mload(0x40)
           // Error(string), which hashes to 0x08c379a0
           mstore(mem, shl(0xe5, 0x461bcd))
-          // mstore(mem, hex'08c379a0')
-          mstore(add(mem, 0x04), 0x20) 
+          mstore(add(mem, 0x04), 0x20)
           mstore(add(mem, 0x24), 0x0f)
           mstore(add(mem, 0x44), "number too high")
           revert(mem, 0x64)
         }
-      }
-      if(cellValue == 0) {
-        continue;
-      }
-      // TODO asm
-      assembly {
-        let encoded := current
-        mstore(encoded, 0xe4)
-        mstore(add(encoded, 0x20), hex"484477da")
-        mstore(add(encoded, 0x24), seenListMem)
-        mstore(add(encoded, 0x44), j)
-        mstore(add(encoded, 0x64), note)
-        mstore(add(encoded, 0x84), sub(cellValue, 1))
-        mstore(add(encoded, 0xa4), 0x20)
-        mstore(add(encoded, 0xc4), len)
-        mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
 
-      // encoded = abi.encodeWithSignature("insert(SetSudokuLib.Set,uint256,bytes32,uint256)",seenListMem ,j, note, cellValue - 1);
-        
-        let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
-        if iszero(result) {
-          if gt(returndatasize(), 0) {
-            let pos := mload(0x40)
-            returndatacopy(pos, 0, returndatasize()) // bubbled stuff
-            revert(pos, returndatasize())
+        if gt(cellValue, 0) {
+          let encoded := current
+          mstore(encoded, 0xe4)
+          mstore(add(encoded, 0x20), hex"484477da")
+          mstore(add(encoded, 0x24), 0x80)
+          mstore(add(encoded, 0x44), j)
+          mstore(add(encoded, 0x64), note)
+          mstore(add(encoded, 0x84), sub(cellValue, 1))   
+          mstore(add(encoded, 0xa4), 0x20)
+          mstore(add(encoded, 0xc4), len)
+          mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
+
+          let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
+
+          if iszero(result) {
+            if gt(returndatasize(), 0) {
+              let pos := mload(0x40)
+              returndatacopy(pos, 0, returndatasize()) // bubble errors??
+              revert(pos, returndatasize())
+            }
+            revert(0, 0)
           }
-          let mem := mload(0x40)
-          mstore(mem, hex'08c379a0')
-          mstore(add(mem, 0x04), 0x20)
-          mstore(add(mem, 0x24), 0x6)
-          mstore(add(mem, 0x44), "oh no!")
-          revert(mem, 0x64)
+
+          returndatacopy(add(mload(seenListMem), 0x20), 0, 0x9)
+          next := mload(0x40)        
         }
-        returndatacopy(add(mload(seenListMem), 0x20), 0, 0x9)
-        next := mload(0x40)
-      }
-    }
+      } // end for
+    } // end asm
 
     assertTest(seenListMem);
   }
