@@ -94,7 +94,7 @@ contract SudokuMem {
     assembly {
         for {  r := 0 } lt(r, 9) { r := add(r, 1) } {
           for {  c := 0 } lt(c, 9) { c := add(c, 1) } {
-            cellValue := calldataload(add(add(mul(0x120, r), sudokuBoard) ,mul(0x20, c)))
+            let cellValue := calldataload(add(add(mul(0x120, r), sudokuBoard) ,mul(0x20, c)))
             if gt(cellValue, 0) {  //rows
               cellValue := sub(cellValue, 1)
               let seenList := add(mload(seen), 0x20)
