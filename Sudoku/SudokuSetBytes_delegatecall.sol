@@ -21,20 +21,24 @@ library SetSudokuLib {
   error duplicateError(bytes1, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) internal {
-    require(cellValue < hex'0A', "number too high");
-
+  function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) public {
     if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
-    if(cellValue != 0 ) { // 
-      set.has[cellValue] = hex'01';
-      assert(contains(set, cellValue) == hex'01');
-      // emit insertLog(msg.sender, key, cellValue);
+
+    assembly {
+      mstore(0, cellValue) 
+      mstore(0x20, set.slot)
+      sstore(keccak256(0, 0x40), cellValue)
     }
   }
 
-  function contains(Set storage set, bytes1 cellValue) internal view returns(bytes1) {
-    if(set.values.length == 0) return 0; // 
-    return set.has[cellValue];// {//return 1;
+  function contains(Set storage set, bytes1 cellValue) internal view returns(bytes1 result) {
+    assembly {
+      mstore(0, cellValue)
+      mstore(0x20, set.slot)
+      if sload(keccak256(0, 0x40)) {
+        result := hex"01"
+      }
+    }
   }
 
    function reset(Set storage set) internal {
