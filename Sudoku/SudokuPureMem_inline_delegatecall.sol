@@ -174,33 +174,64 @@ contract SudokuMem {
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     SetSudokuLib.Set memory seenListMem;
 
-    seenListMem.values = new bytes(9);
+    assembly {
+      mstore(seenListMem, 0)
+      let next := seenListMem
+      seenListMem := 0
+      mstore(0x40, next)
 
-    uint _rowBlock;
-    uint _colBlock;
+      for { let r := 0 } lt(r, 9) { r := add(r, 3) } {
+        for {let c := 0 } lt(c, 9) { c := add(c, 3)} {
+          let seenList := mload(seenListMem)
+          for { let i:= r} lt(i, add(r,3)) { i:= add(i,1)} {
+            for { let j := c } lt(j, add(c,3)) { j := add(j, 1) } {
+              let cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j)))
 
-    uint cellValue;
-    for (uint rowBlock = 0; rowBlock < 9; rowBlock += 3) {
-      for (uint colBlock = 0; colBlock < 9; colBlock += 3) {
-        _rowBlock = rowBlock + 3;
-        _colBlock = colBlock + 3;
-        for (uint miniRow = rowBlock; miniRow < _rowBlock; miniRow++) {
-          for (uint miniCol = colBlock; miniCol < _colBlock; miniCol++) {
-            cellValue = sudokuBoard[miniRow][miniCol];
-            if (cellValue == 0) {
-              continue;
+              // need to check!!!
+              if gt(cellValue, 9) {
+                let mem := mload(0x40)
+                // Error(string)
+                mstore(mem, shl(0xe5, 0x461bcd))
+                mstore(add(mem, 0x04), 0x20)
+                mstore(add(mem, 0x24), 0x0f)
+                mstore(add(mem, 0x44), "number too high")
+                revert(mem, 0x64)
+              }
+
+              if gt(cellValue, 0) {  //rows
+                cellValue := sub(cellValue, 1)
+                
+                let mask := hex'ff'
+                let tmp := add(seenList, cellValue) // 0x0 + cellValue
+                let result := and(mload(tmp), mask)
+
+                if eq(result, hex'01') {
+                    let mem := mload(0x40)
+                    mstore(mem, hex'f3175e8b')//duplicateError2
+                    mstore8(add(mem, 0x04), add(cellValue, 1))
+                    mstore(add(mem, 0x24), hex'BEBEBEBE')
+                    revert(mem, 0x44)
+                }
+
+                mstore8(tmp, 1) // store data
+              }
             }
-            require(cellValue < 10, "number too high");
-            seenListMem.insert(count++, "blocks", cellValue -1);
-            
           }
-        }
-        count = 0; // for dev. can be removed
-        blockNumber++;
 
-        seenListMem.reset();
+          mstore(seenList, 0) 
+
+          let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          mask := and(mask, mload(seenList))
+          if or(mload(mask), 0) {
+            let frame := mload(0x40)
+            mstore(frame, hex"4e487b71") //Panic
+            mstore(add(frame, 0x4), 1)
+            revert(frame, 0x24)
+          }
+          
+        }
       }
-    }
+    } // end asm
     // emit Log("blocks");
     return 2;
   }
@@ -226,7 +257,7 @@ contract SudokuMem {
     address _libAdd = address(SetSudokuLib);
   
     for (uint row = 0; row < 9; row++) {
-      insertListInner(seenListMem, board, "rows", row, _libAdd);
+      insertListInner(seenListMem, sudokuBoard, "rows", row, _libAdd);
     }
     return 2;
   }
