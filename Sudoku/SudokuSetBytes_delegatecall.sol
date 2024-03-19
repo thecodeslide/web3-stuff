@@ -23,7 +23,6 @@ library SetSudokuLib {
 
   function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) public {
     if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
-
     assembly {
       mstore(0, cellValue) 
       mstore(0x20, set.slot)
@@ -42,13 +41,28 @@ library SetSudokuLib {
   }
 
    function reset(Set storage set) internal {
-      delete set.values;
-
-      for(uint j = 1; j < 10; j++) {
-        set.has[bytes1(uint8(j))] = hex'00';
-        assert(set.has[bytes1(uint8(j))] == hex'00');
-      }
-    }
+    assembly {
+      for { let i := 1 } lt(i, 10) { i := add(i, 1) } {
+        mstore8(0, i)
+        mstore(0x20, set.slot)
+        let hash:= keccak256(0, 0x40)
+        
+        if sload(hash) {
+          sstore(hash, 0)
+          let _hash := sload(hash)
+          let mask := not(mul(0xff, exp(0x100, 0x1f)))
+          _hash := and(mask, _hash)
+          sstore(hash, _hash)
+          if or(_hash, sload(hash)) {
+            let frame := mload(0x40)
+            mstore(frame, hex"4e487b71") //Panic
+            mstore(add(frame, 0x4), 1)
+            revert(frame, 0x24)
+          }
+        }
+      } 
+    } // end asm
+  }
 }
 
 contract Sudoku {
