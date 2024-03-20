@@ -127,6 +127,7 @@ contract SudokuMem {
     uint _rowBlock;
     uint _colBlock;
     uint cellValue;
+    uint blockNumber = 0;
 
     for (uint rowBlock = 0; rowBlock < 9; rowBlock += 3) {
       for (uint colBlock = 0; colBlock < 9; colBlock += 3) {
@@ -143,11 +144,11 @@ contract SudokuMem {
               continue;
             }
             require(cellValue < 10, "number too high");
-            seenListMem.insert(count++, "blocks", cellValue -1);
+            seenListMem.insert(blockNumber, "blocks", cellValue -1);
             
           }
         }
-
+        blockNumber++;
         seenListMem.reset();
       }
     }
