@@ -77,7 +77,7 @@ contract SudokuMem {
 
   uint8 constant INDEX = 9;
 
-  SetSudokuLib.Set seenList;
+  // SetSudokuLib.Set seenList;
   event Log(string indexed message);
   error duplicateError2(bytes1, bytes4);
 
@@ -139,12 +139,12 @@ contract SudokuMem {
             let seenList := add(mload(seen), 0x20)
             let mask := hex'ff'
             let result := and(mload(add(add(seenList, cellValue), 0xa)), mask)
-            let mem := mload(0x40)
-              
-            mstore(mem, hex'f3175e8b')//duplicateError2
-            mstore8(add(mem, 0x04), add(cellValue, 1))
-            mstore(add(mem, 0x24), hex'FDFDFDFD')
-            revert(mem, 0x44)
+            if eq(result, hex'01') {
+              let mem := mload(0x40)
+              mstore(mem, hex'f3175e8b')//duplicateError2
+              mstore8(add(mem, 0x04), add(cellValue, 1))
+              mstore(add(mem, 0x24), hex'FDFDFDFD')
+              revert(mem, 0x44)
           }
             mstore8(add(add(seenList, cellValue), 0xa), 1)
           }
