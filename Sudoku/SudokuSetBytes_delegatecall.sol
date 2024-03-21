@@ -21,7 +21,8 @@ library SetSudokuLib {
   error duplicateError(bytes1, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-  function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) public {
+//TODO key for hash  
+function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) external {
     if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
     assembly {
       mstore(0, cellValue) 
@@ -30,7 +31,7 @@ library SetSudokuLib {
     }
   }
 
-  function contains(Set storage set, bytes1 cellValue) internal view returns(bytes1 result) {
+  function contains(Set storage set, bytes1 cellValue) public view returns(bytes1 result) {
     assembly {
       mstore(0, cellValue)
       mstore(0x20, set.slot)
@@ -149,10 +150,11 @@ contract Sudoku {
   }
 
   function isValidRows(uint[9][9] calldata sudokuBoard) public returns (uint) { // transfer seenlist
-    // _flag = flag;
+    address _libAdd = address(SetSudokuLib);
+    bytes4 selector = SetSudokuLib.insert.selector;
 
    for (uint row = 0; row < 9; row++) {
-    insertListInner(sudokuBoard, "rows", row);
+    insertListInner(sudokuBoard, "rows", row, selector, _libAdd);
     }
     assertTest();
     // emit Log("row");
@@ -160,8 +162,11 @@ contract Sudoku {
   }
 
   function isValidColumns(uint[9][9] calldata sudokuBoard) public returns (uint)  {
+    address _libAdd = address(SetSudokuLib);
+    bytes4 selector = SetSudokuLib.insert.selector;    
+
     for (uint i = 0; i < 9; i++) {
-        insertListInner(sudokuBoard, "cols", i);
+      insertListInner(sudokuBoard, "cols", i, selector, _libAdd);
     }
       assertTest();
       // emit Log("Cols");
@@ -169,17 +174,53 @@ contract Sudoku {
   }
 
   function insertListInner(uint[9][9] calldata board, bytes32 note, uint position) private { 
-    bytes1 cellValue = hex'00';
+    bytes1 cellValue;
 
-    for (uint j = 0; j< 9; j++) {
-      if (note == "rows") {
-        cellValue = bytes1(uint8(board[position][j]));
+    assembly {
+      if iszero(extcodesize(_libAdd)) {
+        revert(0,0)
       }
-      else { 
-        cellValue = bytes1(uint8(board[j][position]));
-      }
-        seenList.insert(j, note, cellValue);
-    }
+
+      for { let j := 0 } lt(j, 9) {j := add(j, 1)} {
+        switch note 
+        case "rows" {
+          cellValue := shl(248, calldataload(add(add(mul(0x120, position), board) ,mul(0x20, j))))
+        }
+        default { // cols
+          cellValue := shl(248, calldataload(add(add(mul(0x20, position), board) ,mul(0x120, j))))
+        }
+
+        if gt(cellValue, hex"09") {
+          let mem := mload(0x40)
+          // Error(string)
+          mstore(mem, shl(0xe5, 0x461bcd))
+          mstore(add(mem, 0x04), 0x20) 
+          mstore(add(mem, 0x24), 0x0f)
+          mstore(add(mem, 0x44), "number too high")
+          revert(mem, 0x64)
+        }
+
+        if gt(cellValue, 0) {
+          let frame := mload(0x40)
+          mstore(frame, selector)
+          mstore(add(frame, 0x4), seenList.slot)
+          mstore(add(frame, 0x24), j)
+          mstore(add(frame, 0x44), note)
+          mstore(add(frame, 0x64), cellValue)
+        
+          let result := delegatecall(gas(), _libAdd, frame, 0x84, 0, 0) 
+
+          if iszero(result) {
+            if gt(returndatasize(), 0) {
+              let pos := mload(0x40)
+              returndatacopy(pos, 0, returndatasize()) // bubble errors??
+              revert(pos, returndatasize())
+            }
+            revert(0,0)
+          }
+        }
+      } // end for
+    } // end asm
 
     assertTest();
   }
