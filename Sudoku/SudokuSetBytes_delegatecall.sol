@@ -173,7 +173,7 @@ contract Sudoku {
       return 2;
   }
 
-  function insertListInner(uint[9][9] calldata board, bytes32 note, uint position) private { 
+  function insertListInner(uint[9][9] calldata board, bytes32 note, uint position, bytes4 selector, address _libAdd) private {
     bytes1 cellValue;
 
     assembly {
