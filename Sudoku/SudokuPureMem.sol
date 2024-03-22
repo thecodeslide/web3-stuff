@@ -283,15 +283,16 @@ contract SudokuMem {
 
     for (uint j = 0; j< 9; j++) {
       assembly {
-        if eq(note, "rows") {
-          cellValue := calldataload(add(add(mul(0x120, position), board), mul(0x20, j)))
+        switch note 
+        case "rows" {
+          cellValue := calldataload(add(add(mul(0x120, position), board) ,mul(0x20, j)))
         }
-        if eq(note, "cols") {
-          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j))) // col
+        default { // cols
+          cellValue := calldataload(add(add(mul(0x20, position),board), mul(0x120, j)))
         }
         if gt(cellValue, 9) {
           let mem := mload(0x40)
-          // Error(string), which hashes to 0x08c379a0
+          // Error(string)
           mstore(mem, shl(0xe5, 0x461bcd))
           mstore(add(mem, 0x04), 0x20)
           mstore(add(mem, 0x24), 0x0f)
