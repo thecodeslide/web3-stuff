@@ -52,7 +52,7 @@ library SetSudokuLib {
    function reset(Set memory set) internal pure {
       assembly {
         mstore(add(mload(set), 0x20), 0)
-        let tmp := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        let tmp := not(not(0))
         tmp := and(tmp, mload(add(mload(set), 0x20)))
         if or(tmp, 0) {
           let frame := mload(0x40)
@@ -138,7 +138,7 @@ contract SudokuMem {
             
           }
           mstore(add(mload(seen), 0x20), 0)
-          let mask := not(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+          let mask := not(not(0))
           mask := and(mask, mload(add(mload(seen), 0x20)))
           if or(mask, 0) {
             let frame := mload(0x40)
@@ -214,12 +214,12 @@ contract SudokuMem {
     address _libAdd = address(SetSudokuLib);
     
     for (uint i = 0; i < 9; i++) {
-     //   insertListInner(seenListMem, sudokuBoard, "cols", i, _libAdd); 
+      insertListInner(seenListMem, sudokuBoard, "cols", i, _libAdd); 
     }
     return 2;
   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) external returns (uint) { // transfer seenlist
+  function isValidRows(uint[9][9] calldata sudokuBoard) external returns (uint) {
     SetSudokuLib.Set memory seenListMem;
     seenListMem.values = new bytes(9);
     address _libAdd = address(SetSudokuLib);
@@ -253,7 +253,7 @@ contract SudokuMem {
 
         if gt(cellValue, 9) {
           let mem := mload(0x40)
-          // Error(string), which hashes to 0x08c379a0
+          // Error(string), 0x08c379a0
           mstore(mem, shl(0xe5, 0x461bcd))
           mstore(add(mem, 0x04), 0x20)
           mstore(add(mem, 0x24), 0x0f)
@@ -263,14 +263,22 @@ contract SudokuMem {
 
         if gt(cellValue, 0) {
           let encoded := current
-          mstore(encoded, 0xe4)
-          mstore(add(encoded, 0x20), hex"484477da")
-          mstore(add(encoded, 0x24), 0x80)
+
+          // memory is never cleared. reuse, but change relevant parts
+          if iszero(mload(encoded)) {
+            mstore(encoded, 0xe4)
+            mstore(add(encoded, 0x20), hex"484477da") 
+            mstore(add(encoded, 0x24), 0x80)
+            mstore(add(encoded, 0x44), j)
+            mstore(add(encoded, 0x64), note)
+            mstore(add(encoded, 0x84), sub(cellValue, 1))
+            mstore(add(encoded, 0xa4), 0x20)
+            mstore(add(encoded, 0xc4), len)
+            mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
+          }
+          
           mstore(add(encoded, 0x44), j)
-          mstore(add(encoded, 0x64), note)
-          mstore(add(encoded, 0x84), sub(cellValue, 1))   
-          mstore(add(encoded, 0xa4), 0x20)
-          mstore(add(encoded, 0xc4), len)
+          mstore(add(encoded, 0x84), sub(cellValue, 1))
           mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
 
           let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
@@ -278,7 +286,7 @@ contract SudokuMem {
           if iszero(result) {
             if gt(returndatasize(), 0) {
               let pos := mload(0x40)
-              returndatacopy(pos, 0, returndatasize()) // bubble errors??
+              returndatacopy(pos, 0, returndatasize()) // bubbled stuff
               revert(pos, returndatasize())
             }
             revert(0, 0)
