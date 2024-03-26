@@ -23,46 +23,68 @@ library SetSudokuLib {
 
 //TODO key for hash  
 function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) external {
-    if (contains(set, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
+    if (contains(set, key, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
+    
     assembly {
-      mstore(0, cellValue) 
+      mstore(0, key)
       mstore(0x20, set.slot)
-      sstore(keccak256(0, 0x40), cellValue)
+ 
+      let shifted := mod( cellValue, 0xff )
+      let position := shl( mul( shifted, 8 ), shifted)
+      let val :=  and( mul( exp( 0x100, shifted ) , 0xff ) , position )
+      let result := not(mul(exp(0x0100, shifted), 0xff))
+
+      result := and(result, sload(keccak256(0, 0x40))) 
+      result := or(sload(keccak256(0, 0x40)), val)
+      sstore(keccak256(0, 0x40), result)
     }
   }
 
-  function contains(Set storage set, bytes1 cellValue) public view returns(bytes1 result) {
+  function contains(Set storage set, uint key, bytes1 cellValue) public view returns(bytes1 result) {
     assembly {
-      mstore(0, cellValue)
+      mstore(0, key)
       mstore(0x20, set.slot)
-      if sload(keccak256(0, 0x40)) {
+
+      result := sload(keccak256(0, 0x40))
+      let val := mod(cellValue, 0xff)
+      let position := shl(mul(val, 8), val)
+      position := and(position, mul(exp(0x100, val), 0xff))
+
+      if and(result, position) {
         result := hex"01"
       }
     }
   }
 
-   function reset(Set storage set) internal {
+   function reset(Set storage set, uint key) internal {
     assembly {
-      for { let i := 1 } lt(i, 10) { i := add(i, 1) } {
-        mstore8(0, i)
-        mstore(0x20, set.slot)
-        let hash:= keccak256(0, 0x40)
+      mstore(0, key)
+      mstore(0x20, set.slot)
+
+      let hash:= keccak256(0, 0x40)
         
-        if sload(hash) {
-          sstore(hash, 0)
-          let _hash := sload(hash)
-          let mask := not(mul(0xff, exp(0x100, 0x1f)))
-          _hash := and(mask, _hash)
-          sstore(hash, _hash)
-          if or(_hash, sload(hash)) {
-            let frame := mload(0x40)
-            mstore(frame, hex"4e487b71") //Panic
-            mstore(add(frame, 0x4), 1)
-            revert(frame, 0x24)
-          }
+      if sload(hash) {
+        sstore(hash, 0)
+
+        let _hash := sload(hash)
+        let mask := not(mul(0xff, exp(0x100, 0x1f)))
+        _hash := and(mask, _hash)
+        sstore(hash, _hash)
+
+        if or(_hash, sload(hash)) {
+          let frame := mload(0x40)
+          mstore(frame, hex"4e487b71") //Panic
+          mstore(add(frame, 0x4), 1)
+          revert(frame, 0x24)
         }
-      } 
+      }
     } // end asm
+  }
+
+  function setSlot(Set storage set, bytes32 _slot) external pure {
+    assembly {
+      set.slot := _slot
+    }
   }
 }
 
@@ -87,40 +109,40 @@ contract Sudoku {
     SetSudokuLib.Set2 memory blockList;
    
     for (uint r = 0; r < 9; r++) {
-        for(uint c = 0; c < 9; c++) { // 
-            cellValue = sudokuBoard[r][c];
-            require(bytes1(uint8(cellValue)) < hex'0A', "number too high");
+      for(uint c = 0; c < 9; c++) { // 
+        cellValue = sudokuBoard[r][c];
+        require(bytes1(uint8(cellValue)) < hex'0A', "number too high");
 
-            if(cellValue != 0) {
-                cellValue = sudokuBoard[r][c] -1; // index
-                if(rowList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
-                }
-                rowList.values[cellValue] = hex'01';
-            }
-
-            cellValue = sudokuBoard[c][r]; // index
-            if(cellValue != 0) {
-                cellValue -= 1;
-                if(colList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
-                }
-                colList.values[cellValue] = hex'01';
-            }
-
-            cellValue = sudokuBoard[3* (r / 3) + c/3][3*(r%3)+(c%3)];
-            if(cellValue != 0) {
-                cellValue -= 1;
-                if(blockList.values[cellValue] == hex'01') {
-                    revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
-                }
-                blockList.values[cellValue] = hex'01';
-            }
+        if(cellValue != 0) {
+          cellValue = sudokuBoard[r][c] -1; // index
+          if(rowList.values[cellValue] == hex'01') {
+            revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
+          }
+          rowList.values[cellValue] = hex'01';
         }
 
-        delete rowList.values;
-        delete colList.values;
-        delete blockList.values;
+        cellValue = sudokuBoard[c][r]; // index
+        if(cellValue != 0) {
+          cellValue -= 1;
+          if(colList.values[cellValue] == hex'01') {
+              revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
+          }
+          colList.values[cellValue] = hex'01';
+        }
+
+        cellValue = sudokuBoard[3* (r / 3) + c/3][3*(r%3)+(c%3)];
+        if(cellValue != 0) {
+          cellValue -= 1;
+          if(blockList.values[cellValue] == hex'01') {
+            revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
+          }
+          blockList.values[cellValue] = hex'01';
+        }
+      }
+
+      delete rowList.values;
+      delete colList.values;
+      delete blockList.values;
     }
 
     return 2; // true
@@ -142,21 +164,22 @@ contract Sudoku {
         }
         count = 0; // for dev. can be removed
         blockNumber++;
-        assertTest();
+        assertTest(blockNumber);
       }
     }
-    assertTest();
+    assertTest(blockNumber);
     // emit Log("blocks");
   }
 
   function isValidRows(uint[9][9] calldata sudokuBoard) public returns (uint) { // transfer seenlist
     address _libAdd = address(SetSudokuLib);
     bytes4 selector = SetSudokuLib.insert.selector;
+    uint row;
 
-   for (uint row = 0; row < 9; row++) {
+   for (row = 0; row < 9; row++) {
     insertListInner(sudokuBoard, "rows", row, selector, _libAdd);
     }
-    assertTest();
+    assertTest(row);
     // emit Log("row");
     return 2;
   }
@@ -164,11 +187,12 @@ contract Sudoku {
   function isValidColumns(uint[9][9] calldata sudokuBoard) public returns (uint)  {
     address _libAdd = address(SetSudokuLib);
     bytes4 selector = SetSudokuLib.insert.selector;    
+    uint i;
 
-    for (uint i = 0; i < 9; i++) {
+    for (i = 0; i < 9; i++) {
       insertListInner(sudokuBoard, "cols", i, selector, _libAdd);
     }
-      assertTest();
+      assertTest(i);
       // emit Log("Cols");
       return 2;
   }
@@ -222,11 +246,11 @@ contract Sudoku {
       } // end for
     } // end asm
 
-    assertTest();
+    assertTest(position);
   }
 
-  function assertTest() private {
-    seenList.reset();
+  function assertTest(uint key) private {
+    seenList.reset(key);
   }
 
   // function isValidRowsAndColumns(int8[9][9] calldata sudokuBoard) {
@@ -236,6 +260,3 @@ contract Sudoku {
   // }
 
 }
-
-
-
