@@ -95,6 +95,11 @@ contract Sudoku {
 
   SetSudokuLib.Set seenList;
   event Log(string indexed message);
+  address public setLib;
+
+  constructor(address _setLib) {
+    setLib = _setLib;
+  }
 
   function isValid(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
     // TODO
@@ -228,7 +233,7 @@ contract Sudoku {
           let frame := mload(0x40)
           mstore(frame, selector)
           mstore(add(frame, 0x4), seenList.slot)
-          mstore(add(frame, 0x24), j)
+          mstore(add(frame, 0x24), position)
           mstore(add(frame, 0x44), note)
           mstore(add(frame, 0x64), cellValue)
         
