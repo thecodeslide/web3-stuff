@@ -21,7 +21,7 @@ library SetSudokuLib {
   error duplicateError(bytes1, bytes32 , bytes4);
   error duplicateError2(bytes1, bytes4);
 
-//TODO key for hash  
+//DONE key for hash  
 function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) external {
     if (contains(set, key, cellValue) == hex'01') revert duplicateError(cellValue, action, hex'DEADBEEF');
     
@@ -31,11 +31,10 @@ function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) ext
  
       let shifted := mod( cellValue, 0xff )
       let position := shl( mul( shifted, 8 ), shifted)
-      let val :=  and( mul( exp( 0x100, shifted ) , 0xff ) , position )
-      let result := not(mul(exp(0x0100, shifted), 0xff))
+      let result :=  and( mul( exp( 0x100, shifted ) , 0xff ) , position )
+      let mask := not(mul(exp(0x100, shifted), 0xff))
 
-      result := and(result, sload(keccak256(0, 0x40))) 
-      result := or(sload(keccak256(0, 0x40)), val)
+      result := or(and(mask, sload(keccak256(0, 0x40))), result)
       sstore(keccak256(0, 0x40), result)
     }
   }
@@ -56,7 +55,7 @@ function insert(Set storage set, uint key, bytes32 action, bytes1 cellValue) ext
     }
   }
 
-   function reset(Set storage set, uint key) internal {
+   function reset(Set storage set, uint key) public {
     assembly {
       mstore(0, key)
       mstore(0x20, set.slot)
@@ -95,60 +94,187 @@ contract Sudoku {
 
   SetSudokuLib.Set seenList;
   event Log(string indexed message);
-  address public setLib;
+  address public destLib;
 
   constructor(address _setLib) {
-    setLib = _setLib;
+    destLib = _setLib;
   }
 
   function isValid(uint[INDEX][INDEX] calldata sudokuBoard) external pure returns (uint) {
-    // TODO
-    // if (!isValidRowsAndColumns(sudokuBoard)) {
-    //     return false;
-    // }
-
     uint cellValue;
 
     SetSudokuLib.Set2 memory rowList;
     SetSudokuLib.Set2 memory colList;
     SetSudokuLib.Set2 memory blockList;
-   
-    for (uint r = 0; r < 9; r++) {
-      for(uint c = 0; c < 9; c++) { // 
-        cellValue = sudokuBoard[r][c];
-        require(bytes1(uint8(cellValue)) < hex'0A', "number too high");
 
-        if(cellValue != 0) {
-          cellValue = sudokuBoard[r][c] -1; // index
-          if(rowList.values[cellValue] == hex'01') {
-            revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'DEADBEEF') ;
+    assembly {
+      let current := mload(rowList) // 0xa0
+
+      for {let r := 0 } lt(r, 9) { r := add(r, 1)} {
+        for {let c := 0 } lt(c, 9) { c := add(c, 1)} {
+          cellValue := calldataload(add(add(mul(0x120, r), sudokuBoard), mul(0x20, c)))
+
+          if gt(cellValue, 9){
+            let mem := mload(0x40)
+            mstore(mem, hex"08c379a0")
+            mstore(add(mem, 0x4), 0x20)
+            mstore(add(mem, 0x24), 0xf)
+            mstore(add(mem, 0x44), "number too high")
+            revert(mem, 0x64)
           }
-          rowList.values[cellValue] = hex'01';
+
+          if gt(cellValue, 0) {
+            // we dont really need this but just for completeness ..
+            if gt(mul(cellValue, 0x20), mul(INDEX, 0x20)) {
+              mstore(0, hex"4e487b71")
+              mstore(0x4, 0x32)
+              revert(0, 0x24)
+            }
+
+            let result := mload(add(mul(0x20, sub(cellValue, 1)), mload(rowList)))
+            let shifted := shl(mul(31,8),cellValue)
+
+            switch iszero(sub(result, shifted))
+            case 1 {
+              let mem := mload(0x40)
+              mstore(mem, hex"f3175e8b") // duplicateError2(bytes1,bytes4)
+              mstore(add(mem, 0x4),shifted)
+              mstore(add(mem, 0x24), hex"deadbeef") // 0x64656164
+              revert(mem, 0x44)
+            }
+            default {
+              mstore(add(mload(rowList), mul(0x20, sub(cellValue, 1))), shifted)
+            }
+  
+          } // endrow
+
+          cellValue := calldataload(add(add(mul(0x120, c), sudokuBoard), mul(0x20, r))) // cols
+
+          if gt(cellValue, 9){
+            let mem := mload(0x40)
+            mstore(mem, hex"08c379a0")
+            mstore(add(mem, 0x4), 0x20)
+            mstore(add(mem, 0x24), 0xf)
+            mstore(add(mem, 0x44), "number too high")
+            revert(mem, 0x64)
+          }
+
+          if gt(cellValue, 0) {
+            // we dont really need this but just for completeness ..
+           // index out of bounds
+            if gt(mul(cellValue, 0x20), mul(INDEX, 0x20)) {
+              mstore(0, hex"4e487b71")
+              mstore(0x4, 0x32)
+              revert(0, 0x24)
+            }
+            let result := mload(add(mul(0x20, sub(cellValue, 1)), mload(colList)))
+            let shifted := shl(mul(31,8),cellValue) // 0x05
+
+            switch iszero(sub(result, shifted))
+            case 1 {
+              let mem := mload(0x40)
+              mstore(mem, hex"f3175e8b") // duplicateError2(bytes1,bytes4)
+              mstore(add(mem, 0x4),shifted)
+              mstore(add(mem, 0x24), hex"FDFDFDFD")
+              revert(mem, 0x44)
+            }
+            default {
+              mstore(add(mload(colList), mul(0x20, sub(cellValue, 1))), shifted)
+            }
+          } // endcol
+          
+          let i := add(mul(div(r, 3), 3) , div(c, 3))
+          let j := add(mul(mod(r,3), 3), mod(c, 3))
+
+          cellValue := calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j))) // blocks
+
+          if gt(cellValue, 9){
+            let mem := mload(0x40)
+            mstore(mem, hex"08c379a0")
+            mstore(add(mem, 0x4), 0x20)
+            mstore(add(mem, 0x24), 0xf)
+            mstore(add(mem, 0x44), "number too high")
+            revert(mem, 0x64)
+          }
+
+          if gt(cellValue, 0) {
+            // we dont really need this but just for completeness ..
+            if gt(mul(cellValue, 0x20), mul(INDEX, 0x20)) {
+              mstore(0, hex"4e487b71")
+              mstore(0x4, 0x32)
+              revert(0, 0x24)
+            }
+            let result := mload(add(mul(0x20, sub(cellValue, 1)), mload(blockList)))
+            let shifted := shl(mul(31,8),cellValue)
+
+            // check duplicates
+            switch iszero(sub(result, shifted))
+            case 1 {
+              let mem := mload(0x40)
+              mstore(mem, hex"f3175e8b") // duplicateError2(bytes1,bytes4)
+              mstore(add(mem, 0x4),shifted)
+              mstore(add(mem, 0x24), hex"bebebebe") // 0x64656164
+              revert(mem, 0x44)
+            }
+            default {
+              mstore(add(mload(blockList), mul(0x20, sub(cellValue, 1))), shifted)
+            }
+          }
+
+
+        } // endfor
+        // delete and reuse memory
+        for { let i := 0 } lt(i, 9) {i := add(i, 1)} {
+          let mem := add(mload(rowList), mul(0x20, i))
+          switch iszero(mload(mem))
+          case 0 {
+            mstore(mem, 0)
+            let val := mload(mem)
+            val := and(mul(exp(0x100, 0x1f), 0xff), val)
+            if gt(val, 0) {
+              let frame := mload(0x40)
+              mstore(frame, hex"4e487b71") //Panic
+              mstore(add(frame, 0x4), 1)
+              revert(frame, 0x24)
+            }
+          }
+          default {    }
+
+          mem := add(mload(colList), mul(0x20, i))
+
+          switch iszero(mload(mem))
+          case 0 {
+            mstore(mem, 0)
+            let val := mload(mem)
+            val := and(mul(exp(0x100, 0x1f), 0xff), val)
+            if gt(val, 0) {
+              let frame := mload(0x40)
+              mstore(frame, hex"4e487b71") //Panic
+              mstore(add(frame, 0x4), 1)
+              revert(frame, 0x24)
+            }
+          }
+
+          mem := add(mload(blockList), mul(0x20, i))
+
+          switch iszero(mload(mem))
+          case 0 {
+            mstore(mem, 0)
+            let val := mload(mem)
+            val := and(mul(exp(0x100, 0x1f), 0xff), val)
+            if gt(val, 0) {
+              let frame := mload(0x40)
+              mstore(frame, hex"4e487b71") //Panic
+              mstore(add(frame, 0x4), 1)
+              revert(frame, 0x24)
+            }
+          }
         }
 
-        cellValue = sudokuBoard[c][r]; // index
-        if(cellValue != 0) {
-          cellValue -= 1;
-          if(colList.values[cellValue] == hex'01') {
-              revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)),  hex'FDFDFDFD') ;
-          }
-          colList.values[cellValue] = hex'01';
-        }
 
-        cellValue = sudokuBoard[3* (r / 3) + c/3][3*(r%3)+(c%3)];
-        if(cellValue != 0) {
-          cellValue -= 1;
-          if(blockList.values[cellValue] == hex'01') {
-            revert SetSudokuLib.duplicateError2(bytes1(uint8(cellValue + 1)), hex'BEBEBEBE') ;
-          }
-          blockList.values[cellValue] = hex'01';
-        }
-      }
+      } // endfor
+    } // endasm
 
-      delete rowList.values;
-      delete colList.values;
-      delete blockList.values;
-    }
 
     return 2; // true
   }
@@ -156,33 +282,92 @@ contract Sudoku {
 
   function isValidBlocks(uint[INDEX][INDEX] calldata sudokuBoard) public {
     uint blockNumber = 0;
-    uint count = 0; // for dev. can be removed
+    bytes4 selector = SetSudokuLib.insert.selector;
+    bytes4 resetselector = SetSudokuLib.reset.selector;
 
-    for (uint rowBlock = 0; rowBlock < 9; rowBlock += 3) {
-      for (uint colBlock = 0; colBlock < 9; colBlock += 3) {
-        for (uint miniRow = rowBlock; miniRow < rowBlock + 3; miniRow++) {
-          for (uint miniCol = colBlock; miniCol < colBlock + 3; miniCol++) {
-            bytes1 cellValue = bytes1(uint8(sudokuBoard[miniRow][miniCol]));
-            seenList.insert(count++, "blocks", (cellValue));
-
-          }
-        }
-        count = 0; // for dev. can be removed
-        blockNumber++;
-        assertTest(blockNumber);
+    assembly {
+      if iszero(extcodesize(sload(destLib.slot))) {
+        let mem := mload(0x40)
+        mstore(mem, hex"08c379a0")
+        mstore(add(mem, 0x4), 0x20)
+        mstore(add(mem, 0x24), 0xd)
+        mstore(add(mem, 0x44), "error library")
+        revert(mem, 0x64)
+        // revert(0,0) // error library
       }
-    }
+      for {let r := 0} lt(r , 9) {  r:= add(r, 3)} {
+        for {let c := 0} lt(c , 9) { c := add(c, 3)} {
+
+          let _i := add(r, 3)
+          let _j := add(c, 3)
+
+          for { let i := r} lt(i , _i) { i := add(i, 1)} {
+            for { let j := c} lt(j , _j) { j := add(j, 1)} {
+
+              let cell := shl(248, calldataload(add(add(mul(0x120, i), sudokuBoard), mul(0x20, j))))
+
+              if gt(cell, hex"09") {
+                let mem := mload(0x40)
+                mstore(mem, hex"08c379a0") // Error string
+                mstore(add(mem, 0x4), 0x20) // offset
+                mstore(add(mem, 0x24), 0xf)
+                mstore(add(mem, 0x44), "number too high")
+                revert(mem, 0x64)
+              }
+
+              if gt(cell, 0){
+                let encoded := mload(0x40)
+                mstore(encoded, selector)
+                mstore(add(encoded, 0x4), seenList.slot)
+                mstore(add(encoded, 0x24), blockNumber)
+                mstore(add(encoded, 0x44), "blocks")
+                mstore(add(encoded, 0x64), cell)
+
+                let result := delegatecall(gas(), sload(destLib.slot), encoded, 0x84, 0, 0)
+
+                if iszero(result) {
+                  if gt(returndatasize(), 0) {
+                    let pos := mload(0x40)
+                    returndatacopy(pos, 0, returndatasize()) // bubbled stuff
+                    revert(pos, returndatasize())
+                  }
+                  revert(0,0)
+                }
+              }
+            }
+          }
+          // reset call
+          let mem := mload(0x40)
+          mstore(mem, resetselector)
+          mstore(add(mem, 0x4), seenList.slot)
+          mstore(add(mem, 0x24), blockNumber)
+
+          let result := delegatecall(gas(), sload(destLib.slot), mem, 0x44, 0, 0)
+
+          if iszero(result) {
+            if gt(returndatasize(), 0) {
+              let pos := mload(0x40)
+              returndatacopy(pos, 0, returndatasize()) // bubbled stuff
+              revert(pos, returndatasize())
+            }
+            revert(0,0)
+          }
+          // blockNumber := add(blockNumber, 1)
+        }
+      }
+    } // endasm
+
     assertTest(blockNumber);
     // emit Log("blocks");
   }
 
-  function isValidRows(uint[9][9] calldata sudokuBoard) public returns (uint) { // transfer seenlist
-    address _libAdd = address(SetSudokuLib);
+  function isValidRows(uint[9][9] calldata sudokuBoard) public returns (uint) {
+    // address _libAdd = address(SetSudokuLib);
     bytes4 selector = SetSudokuLib.insert.selector;
     uint row;
 
    for (row = 0; row < 9; row++) {
-    insertListInner(sudokuBoard, "rows", row, selector, _libAdd);
+    insertListInner(sudokuBoard, "rows", row, selector);
     }
     assertTest(row);
     // emit Log("row");
@@ -190,24 +375,29 @@ contract Sudoku {
   }
 
   function isValidColumns(uint[9][9] calldata sudokuBoard) public returns (uint)  {
-    address _libAdd = address(SetSudokuLib);
+    // address _libAdd = address(SetSudokuLib);
     bytes4 selector = SetSudokuLib.insert.selector;    
     uint i;
 
     for (i = 0; i < 9; i++) {
-      insertListInner(sudokuBoard, "cols", i, selector, _libAdd);
+      insertListInner(sudokuBoard, "cols", i, selector);
     }
       assertTest(i);
       // emit Log("Cols");
       return 2;
   }
 
-  function insertListInner(uint[9][9] calldata board, bytes32 note, uint position, bytes4 selector, address _libAdd) private {
+  function insertListInner(uint[9][9] calldata board, bytes32 note, uint position, bytes4 selector) private {
     bytes1 cellValue;
 
     assembly {
-      if iszero(extcodesize(_libAdd)) {
-        revert(0,0)
+      if iszero(extcodesize(sload(destLib.slot))) {
+        let mem := mload(0x40)
+        mstore(mem, hex"08c379a0")
+        mstore(add(mem, 0x4), 0x20)
+        mstore(add(mem, 0x24), 0xd)
+        mstore(add(mem, 0x44), "error library")
+        revert(mem, 0x64)
       }
 
       for { let j := 0 } lt(j, 9) {j := add(j, 1)} {
@@ -237,12 +427,12 @@ contract Sudoku {
           mstore(add(frame, 0x44), note)
           mstore(add(frame, 0x64), cellValue)
         
-          let result := delegatecall(gas(), _libAdd, frame, 0x84, 0, 0) 
+          let result := delegatecall(gas(), sload(destLib.slot), frame, 0x84, 0, 0) 
 
           if iszero(result) {
             if gt(returndatasize(), 0) {
               let pos := mload(0x40)
-              returndatacopy(pos, 0, returndatasize()) // bubble errors??
+              returndatacopy(pos, 0, returndatasize()) // bubbled stuff
               revert(pos, returndatasize())
             }
             revert(0,0)
