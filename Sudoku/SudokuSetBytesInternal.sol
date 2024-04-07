@@ -1,4 +1,4 @@
-// AGPL-3.0-only
+// SPDX-License-Identifier: NON-AI AGPL-3.0-only
 // NON-AI AGPL-3.0-only
 
 pragma solidity ^0.8.17;
@@ -31,7 +31,7 @@ library SetSudokuLib {
     set.values[uint(uint8(cellValue))] = hex'01';
   }
 
-  function contains(Set storage set, bytes1 cellValue) internal returns(bytes1 result) {
+  function contains(Set storage set, bytes1 cellValue) internal view returns(bytes1 result) {
     assembly {
       if and( sload(set.slot) , shl(mul(shr(248, cellValue), 8), 1)) {
         result := hex"01"
@@ -183,20 +183,16 @@ contract Sudoku {
   }
 
   function isValidRows(uint[9][9] calldata sudokuBoard) external returns (uint) {
-    SetSudokuLib.Set memory seenListMem;
-
     for (uint row = 0; row < 9; row++) {
-      insertListInner(seenListMem, sudokuBoard, "rows", row);
+      insertListInner(sudokuBoard, "rows", row);
     }
     // emit Log("row");
     return 2;
   }
 
   function isValidColumns(uint[9][9] calldata sudokuBoard) external returns (uint) {
-    SetSudokuLib.Set memory seenListMem;
-
     for (uint col = 0; col < 9; col++) {
-        insertListInner(seenListMem, sudokuBoard, "cols", col);
+        insertListInner(sudokuBoard, "cols", col);
     }
       // emit Log("Cols");
       return 2;
