@@ -119,14 +119,14 @@ contract Sudoku {
             sstore(seenList.slot, or(val, shl(mul(cellValue, 8), 1)))
           }
           
-          if gt(cellValue, 9) {
-            let mem := mload(0x40)
-            mstore(mem, hex"08c379a0")
-            mstore(add(mem, 0x4), 0x20)
-            mstore(add(mem, 0x24), 0xf)
-            mstore(add(mem, 0x44), "number too high")
-            revert(mem, 0x64)
-          }
+          // if gt(cellValue, 9) {
+          //   let mem := mload(0x40)
+          //   mstore(mem, hex"08c379a0")
+          //   mstore(add(mem, 0x4), 0x20)
+          //   mstore(add(mem, 0x24), 0xf)
+          //   mstore(add(mem, 0x44), "number too high")
+          //   revert(mem, 0x64)
+          // }
         } 
         // clear slot
         sstore(seenList.slot, not(not(0)))
@@ -178,6 +178,9 @@ contract Sudoku {
           }
         }
       }
+      let logger := mload(0x40)
+      mstore(logger, hex"626c6f636b73")
+      log2(logger,0,  0xcf34ef537ac33ee1ac626ca1587a0a7e8e51561e5514f8cb36afa1c5102b3bab, keccak256(logger, 6))
     } // endasm
     // emit Log("blocks");
   }
@@ -186,7 +189,11 @@ contract Sudoku {
     for (uint row = 0; row < 9; row++) {
       insertListInner(sudokuBoard, "rows", row);
     }
-    // emit Log("row");
+    assembly {
+      let logger := mload(0x40)
+      mstore(logger, hex"726f77")
+      log2(logger, 0, 0xcf34ef537ac33ee1ac626ca1587a0a7e8e51561e5514f8cb36afa1c5102b3bab, keccak256(logger, 3))
+    }
     return 2;
   }
 
@@ -194,7 +201,11 @@ contract Sudoku {
     for (uint col = 0; col < 9; col++) {
         insertListInner(sudokuBoard, "cols", col);
     }
-      // emit Log("Cols");
+      assembly {
+        let logger := mload(0x40)
+        mstore(logger, hex"436f6c73")
+        log2(logger,0, 0xcf34ef537ac33ee1ac626ca1587a0a7e8e51561e5514f8cb36afa1c5102b3bab, keccak256(logger, 4))
+      }
       return 2;
   }
 
