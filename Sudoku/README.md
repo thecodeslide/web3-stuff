@@ -1,8 +1,8 @@
 # temp
 this work is not meant to be serious. isn't perfect. not meant to be so.
-done out of curiosity and to try things out. mainly represents my intention to explore and find boundaries to my knowledge, and push on them.
+done out of curiosity and to try things out. mainly represents the desire to explore and find boundaries to my knowledge, and push on them.
 
-## test inputs - _0(zero) represents empty cell_
+## test inputs used - _0(zero) represents empty cell_
 - **valid array** 
   -  `[[5, 3, 0, 0, 7, 0, 0, 0, 0] ,[6, 0, 0, 1, 9, 5, 0, 0, 0] , [0, 9, 8, 0, 0, 0, 0, 6, 0] , [8, 0, 0, 0, 6, 0, 0, 0, 3] , [4, 0, 0, 8, 0, 3, 0, 0, 1] , [7, 0, 0, 0, 2, 0, 0, 0, 6] , [0, 6, 0, 0, 0, 0, 2, 8, 0] , [0, 0, 0, 4, 1, 9, 0, 0, 5] , [0, 0, 0, 0, 8, 0, 0, 7, 9]]`
 
@@ -23,4 +23,7 @@ done out of curiosity and to try things out. mainly represents my intention to e
 
 - **invalid(row and block)**
   - `[[5, 3, 0, 0, 7, 0, 0, 0, 0] ,[6, 0, 9, 1, 9, 5, 0, 0, 0] , [0, 9, 8, 0, 0, 0, 0, 6, 0] , [8, 0, 0, 0, 6, 0, 0, 0, 3] , [4, 0, 0, 8, 0, 3, 0, 0, 1] , [7, 0, 0, 0, 2, 0, 0, 0, 6] , [0, 6, 0, 0, 0, 0, 2, 8, 0] , [0, 0, 0, 4, 1, 9, 0, 0, 5] , [0, 0, 0, 0, 8, 0, 0, 7, 9]]`
+ 
+- **invalid(row and block)**
+  - `[[5, 3, 3, 0, 7, 0, 0, 0, 0] ,[6, 0, 0, 1, 9, 5, 0, 0, 0] , [0, 9, 8, 0, 0, 0, 0, 6, 0] , [8, 0, 0, 0, 6, 0, 0, 0, 3] , [4, 0, 0, 8, 0, 3, 0, 0, 1] , [7, 0, 0, 0, 2, 0, 0, 0, 6] , [0, 6, 0, 0, 0, 0, 2, 8, 0] , [0, 0, 0, 4, 1, 9, 0, 0, 5] , [0, 0, 0, 0, 8, 0, 0, 7, 9]]`
 
