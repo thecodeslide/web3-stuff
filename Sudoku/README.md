@@ -2,13 +2,14 @@
 not for use in production.
 
 ## test inputs used - _0(zero) represents empty cell_
-[valid array](https://github.com/thecodeslide/web3-Eth/main/Sudoku/#valid-array)\
-[invalid block](https://github.com/thecodeslide/web3-Eth/main/Sudoku/README.md#invalidblock)\
-[invalid column](https://github.com/thecodeslide/web3-Eth/main/Sudoku/README.md#invalidcolumn)\
-[invalid row](https://github.com/thecodeslide/web3-Eth/main/Sudoku/README.md#invalidrow)\
-[invalid row and column and block](https://github.com/thecodeslide/web3-Eth/main/Sudoku/README.md#invalidrow-and-col-and-block)\
-[invalid row and column](https://github.com/thecodeslide/web3-Eth/main/Sudoku/README.md#invalidrow-and-col)\
-[invalid row and block](https://github.com/thecodeslide/web3-Eth/Sudoku?tab=readme-ov-file#invalidrow-and-block)
+[valid array](#valid-array)\
+[invalid block](#invalidblock)\
+[invalid column](#invalidcolumn)\
+[invalid row](#invalidrow)\
+[invalid row and column and block](#invalidrow-and-col-and-block)\
+[invalid row and column](#invalidrow-and-col)\
+[invalid row and block](#invalidrow-and-block)\
+[invalid row and block](#invalidrow-and-block-1)
 
 
 > #### **valid array** 
