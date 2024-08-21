@@ -265,7 +265,13 @@ contract SudokuMem {
           let encoded := current
 
           // memory is never cleared. reuse, but change relevant parts
-          if iszero(mload(encoded)) {
+          switch iszero(mload(encoded))
+          case 0 {
+            mstore(add(encoded, 0x44), j)
+            mstore(add(encoded, 0x84), sub(cellValue, 1))
+            mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
+          }
+          default {
             mstore(encoded, 0xe4)
             mstore(add(encoded, 0x20), hex"484477da") 
             mstore(add(encoded, 0x24), 0x80)
@@ -277,10 +283,6 @@ contract SudokuMem {
             mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
           }
           
-          mstore(add(encoded, 0x44), j)
-          mstore(add(encoded, 0x84), sub(cellValue, 1))
-          mstore(add(encoded, 0xe4), mload(add(mload(seenListMem), 0x20)))
-
           let result := delegatecall(gas(), _libAdd, add(encoded, 0x20), mload(encoded), 0, 0)
 
           if iszero(result) {
